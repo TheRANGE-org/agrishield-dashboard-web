@@ -174,7 +174,7 @@ function LatestStrip({ node, nowMs, catalog }: LatestStripProps) {
         <div className="flex items-center gap-1 text-slate-700">
           <ArrowUp
             className="h-4 w-4 text-slate-500 shrink-0"
-            style={{ transform: `rotate(${windDeg}deg)` }}
+            style={{ transform: `rotate(${(windDeg + 180) % 360}deg)` }}
             aria-label={`Wind from ${compassPoint}`}
           />
           <span className="font-medium">{compassPoint}</span>
