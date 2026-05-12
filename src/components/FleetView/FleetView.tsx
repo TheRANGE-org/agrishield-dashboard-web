@@ -5,6 +5,7 @@ import { useTicker } from "../../hooks/useTicker";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
 import NodeTile from "./NodeTile";
+import FleetMap from "./FleetMap";
 import { formatDateTime } from "../../lib/format";
 
 export default function FleetView() {
@@ -74,6 +75,11 @@ export default function FleetView() {
             Updated {formatDateTime(lastUpdated)}
           </div>
         )}
+      </div>
+
+      {/* ── Map ────────────────────────────────────────────────────── */}
+      <div className="mb-6">
+        <FleetMap nodes={fleet.nodes} nowMs={nowMs} />
       </div>
 
       {/* ── Node grid ──────────────────────────────────────────────── */}

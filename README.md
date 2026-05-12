@@ -53,18 +53,20 @@ pnpm dev
 | Styling   | Tailwind CSS v4              |
 | Routing   | React Router v7              |
 | Data fetching | SWR (polling, SWR cache) |
+| Charts    | Recharts 3                   |
+| Map       | Leaflet + react-leaflet (OSM tiles) |
 | Icons     | Lucide React                 |
 | Testing   | Vitest                       |
 | Language  | TypeScript 5 (strict)        |
 
 ## Pages
 
-| Path           | Description                                        |
-|----------------|----------------------------------------------------|
-| `/`            | Fleet view — grid of node tiles, auto-refreshes 30s |
-| `/diagnostics` | Operator diagnostics — backend internals (hidden from nav) |
+| Path              | Description                                                      |
+|-------------------|------------------------------------------------------------------|
+| `/`               | Fleet view — OSM map + node tile grid, auto-refreshes 30s        |
+| `/nodes/:nodeId`  | Node detail — headline charts, time window selector, full telemetry |
+| `/diagnostics`    | Operator diagnostics — backend internals (hidden from nav)        |
 
-**Phase 4 will add:** per-node detail view, 24h charts (Recharts), site map (Leaflet).
 **Phase 5 will add:** CF Pages deployment, CF Access authentication.
 
 ## Environment variables
@@ -81,3 +83,6 @@ All variables must be prefixed `VITE_` to be accessible from client code (Vite r
 - **Metadata-driven labels**: metric labels, units, and tooltip text come from `/api/metadata`; the frontend never hardcodes them.
 - **Real-time ticker**: a 1-second interval updates "last seen" counters without network re-fetches. Node status transitions (live→stale→dead) happen in real time between fleet polls.
 - **No state management library**: React state + SWR is sufficient for a read-only polling dashboard.
+- **Historical data >24h is GCS-backed**: queries for 7d and 30d windows are routed through the backend's GCS layer. The first query for a given window may take 1–3 seconds; subsequent queries within the TTL window are served from the backend's in-process cache. The backend's `/api/diagnostics` `gcs_cache.hit_rate` increments on cache hits.
+- **Wind direction not charted**: `wind_vane_degrees_avg` uses circular-mean math that is meaningless on a standard Y axis (350° and 10° are adjacent, not 340° apart). Wind direction is shown as a rotated arrow icon + compass-point label in the node's latest-state strip.
+- **Mobile chart performance**: 1440 points per chart at 24h is handled fine by Recharts on modern devices. If sluggishness is observed on low-end Android, consider `bucket=5m` for the 24h window (reduces to 288 points). This is not pre-optimized.
