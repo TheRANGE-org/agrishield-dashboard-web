@@ -80,18 +80,25 @@ interface WindowQueryParams {
 
 /**
  * Maps a TimeWindow to the correct /api/query params.
- * 7d and 30d use bucket=1h with agg=auto (catalog-driven per-metric agg).
- * Shorter windows use raw data (no bucket).
+ *
+ * All windows use agg=auto (catalog-driven per-metric aggregation) so the
+ * response is always columnar JSON — parseable with response.json().
+ * agg=raw returns NDJSON which requires a streaming parser; we avoid it here.
+ *
+ * Bucket sizes:
+ *   1h, 6h, 24h → bucket=1m  (1-min granularity: 60 / 360 / 1440 rows)
+ *   7d           → bucket=1h  (168 rows)
+ *   30d          → bucket=1h  (720 rows)
  */
 export function windowToQueryParams(tw: TimeWindow): WindowQueryParams {
   const now = Math.floor(Date.now() / 1000);
   switch (tw) {
     case "1h":
-      return { window: "1h", agg: "raw" };
+      return { window: "1h", bucket: "1m", agg: "auto" };
     case "6h":
-      return { window: "6h", agg: "raw" };
+      return { window: "6h", bucket: "1m", agg: "auto" };
     case "24h":
-      return { window: "24h", agg: "raw" };
+      return { window: "24h", bucket: "1m", agg: "auto" };
     case "7d":
       return {
         start_ts: now - 7 * 86400,
