@@ -1,0 +1,63 @@
+/* Inter from Google Fonts — must precede @import tailwindcss */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+  /* Brand: environmental green */
+  --color-brand-50: #f0fdf4;
+  --color-brand-100: #dcfce7;
+  --color-brand-200: #bbf7d0;
+  --color-brand-500: #22c55e;
+  --color-brand-600: #16a34a;
+  --color-brand-700: #15803d;
+
+  /* Status palette */
+  --color-status-live: #16a34a;
+  --color-status-live-bg: #f0fdf4;
+  --color-status-live-border: #bbf7d0;
+
+  --color-status-stale: #d97706;
+  --color-status-stale-bg: #fffbeb;
+  --color-status-stale-border: #fde68a;
+
+  --color-status-dead: #dc2626;
+  --color-status-dead-bg: #fef2f2;
+  --color-status-dead-border: #fecaca;
+
+  /* Surface palette (light theme) */
+  --color-surface-0: #ffffff;
+  --color-surface-1: #f8fafc;
+  --color-surface-2: #f1f5f9;
+  --color-surface-border: #e2e8f0;
+
+  /* Text */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94a3b8;
+
+  /* Font */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface-1);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
