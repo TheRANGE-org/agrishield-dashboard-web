@@ -113,7 +113,7 @@ export default function PairedChart({
     : avgMetric.label;
 
   return (
-    <ResponsiveContainer width="100%" aspect={2}>
+    <ResponsiveContainer width="100%" aspect={2} minHeight={180}>
       <LineChart data={chartData} margin={{ top: 8, right: 48, bottom: 0, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
         <XAxis
