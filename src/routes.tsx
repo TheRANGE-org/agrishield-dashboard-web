@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import Layout from "./components/shared/Layout";
 import FleetView from "./components/FleetView/FleetView";
 import DiagnosticsView from "./components/DiagnosticsView/DiagnosticsView";
+import NodeDetail from "./components/NodeDetail/NodeDetail";
 
 export const router = createBrowserRouter([
   {
@@ -11,6 +12,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <FleetView />,
+      },
+      {
+        path: "nodes/:nodeId",
+        element: <NodeDetail />,
       },
       {
         // Operator-only: not linked from nav, reachable by URL

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ChevronDown, ChevronUp, Cpu, MemoryStick, HardDrive, Thermometer } from "lucide-react";
 import type { FleetNode } from "../../api/types";
 import type { Catalog } from "../../api/types";
@@ -26,7 +27,7 @@ const STATUS_BG: Record<string, string> = {
   dead: "bg-red-50/60 border-red-200",
 };
 
-export default function NodeTile({ node, nowMs, catalog: _catalog }: NodeTileProps) {
+export default function NodeTile({ node, nowMs, catalog: _catalog }: NodeTileProps) {  // eslint-disable-line @typescript-eslint/no-unused-vars
   const [expanded, setExpanded] = useState(false);
 
   // Recompute status from live ticker so it transitions between polls
@@ -75,13 +76,15 @@ export default function NodeTile({ node, nowMs, catalog: _catalog }: NodeTilePro
   const borderClass = STATUS_BG[liveStatus] ?? STATUS_BG.live;
 
   return (
-    <article
+    <Link
+      to={`/nodes/${node.nodeId}`}
       className={[
-        "rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md",
+        "block rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md hover:ring-2 hover:ring-green-400/50 focus-visible:outline-2 focus-visible:outline-green-600",
         borderClass,
       ].join(" ")}
-      aria-label={`Node ${node.nodeId}`}
+      aria-label={`Node ${node.nodeId} — view details`}
     >
+    <article>
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -163,7 +166,7 @@ export default function NodeTile({ node, nowMs, catalog: _catalog }: NodeTilePro
       <div className="border-t border-slate-100">
         <button
           type="button"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded((v) => !v); }}
           className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-slate-500 hover:bg-slate-50 transition-colors"
           aria-expanded={expanded}
           aria-controls={`system-health-${node.nodeId}`}
@@ -222,6 +225,7 @@ export default function NodeTile({ node, nowMs, catalog: _catalog }: NodeTilePro
         )}
       </div>
     </article>
+    </Link>
   );
 }
 
