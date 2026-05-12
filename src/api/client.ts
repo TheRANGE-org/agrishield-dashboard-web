@@ -1,4 +1,6 @@
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) ?? "";
+// In dev, Vite proxies /api/* → backend (see vite.config.ts), so BASE_URL is empty.
+// In production builds VITE_API_BASE_URL is set to the real API domain.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 // ─── Error type ──────────────────────────────────────────────────────────────
