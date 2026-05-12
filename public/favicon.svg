@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Shield shape -->
+  <path d="M16 2 L28 7 L28 16 C28 23 22 29 16 31 C10 29 4 23 4 16 L4 7 Z"
+        fill="#16a34a" opacity="0.15"/>
+  <path d="M16 2 L28 7 L28 16 C28 23 22 29 16 31 C10 29 4 23 4 16 L4 7 Z"
+        fill="none" stroke="#16a34a" stroke-width="2"/>
+  <!-- Signal waves suggesting environmental sensing -->
+  <circle cx="16" cy="17" r="2" fill="#16a34a"/>
+  <path d="M11 14 Q13 11 16 11 Q19 11 21 14" stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M8 11 Q11 7 16 7 Q21 7 24 11" stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.5"/>
+</svg>
