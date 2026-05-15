@@ -136,8 +136,8 @@ export default function WeatherWindChart({
   }
 
   interface CustomArrowTickProps {
-    x?: number;
-    y?: number;
+    x?: string | number;
+    y?: string | number;
     payload?: { value: number };
   }
 
@@ -148,7 +148,7 @@ export default function WeatherWindChart({
     if (rotation == null) return null;
     
     return (
-      <g transform={`translate(${x},${y + 12})`}>
+      <g transform={`translate(${x},${Number(y) + 12})`}>
         <circle cx="0" cy="0" r="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
         <g transform={`rotate(${rotation})`}>
           <path 
