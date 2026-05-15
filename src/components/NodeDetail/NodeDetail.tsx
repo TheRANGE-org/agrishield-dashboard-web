@@ -443,7 +443,7 @@ export default function NodeDetail() {
             Unable to load chart data: {headlineError.message}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
           {HEADLINE_METRICS.map((h, i) => renderHeadlineChart(h, i))}
         </div>
       </section>
@@ -466,7 +466,7 @@ export default function NodeDetail() {
         </button>
 
         {showAll && (
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
             {allReadingNames.map((name, i) => renderAllChart(name, i))}
           </div>
         )}
