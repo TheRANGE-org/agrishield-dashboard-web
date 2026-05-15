@@ -148,16 +148,18 @@ export default function WeatherWindChart({
     if (rotation == null) return null;
     
     return (
-      <g transform={`translate(${x},${y + 12}) rotate(${rotation})`}>
-        <circle cx="0" cy="0" r="10" fill="#f8fafc" />
-        <path 
-          d="M0 -7 L0 7 M0 -7 L-4 -3 M0 -7 L4 -3" 
-          stroke="#0284c7" 
-          strokeWidth={2} 
-          fill="none" 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-        />
+      <g transform={`translate(${x},${y + 12})`}>
+        <circle cx="0" cy="0" r="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+        <g transform={`rotate(${rotation})`}>
+          <path 
+            d="M0 -6 L0 6 M0 -6 L-3 -2 M0 -6 L3 -2" 
+            stroke="#0ea5e9" 
+            strokeWidth={2} 
+            fill="none" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+          />
+        </g>
       </g>
     );
   };
@@ -188,8 +190,8 @@ export default function WeatherWindChart({
             axisLine={false}
             tickLine={false}
             ticks={arrowTicks}
-            tick={<CustomArrowTick />}
-            height={24}
+            tick={CustomArrowTick}
+            height={32}
           />
           <YAxis
             domain={[0, "auto"]}
