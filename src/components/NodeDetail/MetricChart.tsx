@@ -1,5 +1,4 @@
 import {
-  ResponsiveContainer,
   LineChart,
   Line,
   XAxis,
@@ -13,6 +12,7 @@ import type { DataPoint } from "../../lib/chartData";
 import type { TimeWindow } from "../../lib/timeWindow";
 import { formatTimeForWindow, formatTooltipTime } from "../../lib/timeWindow";
 import { referenceRangeColor, metricColor } from "../../lib/chartConfig";
+import { useContainerSize } from "../../hooks/useContainerSize";
 
 interface Props {
   metric: MetricMetadata;
@@ -106,10 +106,12 @@ export default function MetricChart({ metric, data, window }: Props) {
     ? `${metric.label} (${metric.unit})`
     : metric.label;
 
+  const { ref, width, height } = useContainerSize();
+
   return (
-    <div style={{ width: "100%", height: 220, minWidth: 0 }}>
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+    <div ref={ref} style={{ width: "100%", height: 220, minWidth: 0 }}>
+      {width > 0 && height > 0 ? (
+        <LineChart width={width} height={height} data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
         <XAxis
           dataKey="ts"
@@ -169,8 +171,8 @@ export default function MetricChart({ metric, data, window }: Props) {
           activeDot={{ r: 4 }}
           connectNulls={false}
         />
-      </LineChart>
-    </ResponsiveContainer>
+        </LineChart>
+      ) : null}
     </div>
   );
 }

@@ -322,12 +322,13 @@ export default function NodeDetail() {
 
       const avgData = headlineSeries?.[h.primary] ?? [];
       const peakData = headlineSeries?.[h.paired] ?? [];
+      const hasAnyData = hasData(avgData) || hasData(peakData);
 
       return (
         <ChartCard key={idx} title={primaryMeta.label}>
           {isLoading ? (
             <ChartSkeleton />
-          ) : avgData.length === 0 && peakData.length === 0 ? (
+          ) : !hasAnyData ? (
             <ChartEmpty label={primaryMeta.label} />
           ) : (
             <PairedChart
@@ -378,10 +379,14 @@ export default function NodeDetail() {
 
     if (pairMeta && pairInSet) {
       const pairData = allSeries?.[pairName!] ?? [];
+      const hasAnyData = hasData(data) || hasData(pairData);
+
       return (
         <ChartCard key={idx} title={meta.label}>
           {allLoading && !allSeries ? (
             <ChartSkeleton />
+          ) : !hasAnyData ? (
+            <ChartEmpty label={meta.label} />
           ) : (
             <PairedChart
               avgMetric={meta}
