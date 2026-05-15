@@ -174,7 +174,7 @@ export default function WeatherWindChart({
         <ComposedChart width={width} height={height} data={merged}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
           <XAxis
-            xAxisId={0}
+            xAxisId="primary"
             dataKey="ts"
             type="number"
             domain={["dataMin", "dataMax"]}
@@ -187,7 +187,7 @@ export default function WeatherWindChart({
           />
           {/* Secondary X-Axis for Direction Arrows */}
           <XAxis
-            xAxisId={1}
+            xAxisId="arrows"
             dataKey="ts"
             type="number"
             domain={["dataMin", "dataMax"]}
@@ -213,7 +213,7 @@ export default function WeatherWindChart({
             wrapperStyle={{ fontSize: 11, color: "#64748b" }}
           />
           <Line
-            xAxisId={0}
+            xAxisId="primary"
             name="Peak Gust"
             type="monotone"
             dataKey="peak"
@@ -225,7 +225,7 @@ export default function WeatherWindChart({
             connectNulls
           />
           <Line
-            xAxisId={0}
+            xAxisId="primary"
             name="Average Speed"
             type="monotone"
             dataKey="avg"
@@ -234,6 +234,15 @@ export default function WeatherWindChart({
             dot={false}
             isAnimationActive={false}
             connectNulls
+          />
+          {/* Dummy line to force the arrows XAxis to render */}
+          <Line
+            xAxisId="arrows"
+            dataKey="avg"
+            stroke="none"
+            dot={false}
+            isAnimationActive={false}
+            activeDot={false}
           />
         </ComposedChart>
       )}
