@@ -24,7 +24,21 @@ interface Props {
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
 
-function CustomTooltip({ active, payload, label, window }: any) {
+interface TooltipPayloadItem {
+  dataKey: string;
+  value: number | null;
+  payload: { ts: number; avg: number | null; peak: number | null; dir: number | null };
+  color: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: number;
+  window: TimeWindow;
+}
+
+function CustomTooltip({ active, payload, label, window }: CustomTooltipProps) {
   if (!active || !payload?.length || label === undefined) return null;
 
   const fmt = (v: number | null) =>
@@ -32,8 +46,8 @@ function CustomTooltip({ active, payload, label, window }: any) {
       ? "—"
       : `${typeof v === "number" && !Number.isInteger(v) ? v.toFixed(1) : v} mph`;
 
-  const avgPoint = payload.find((p: any) => p.dataKey === "avg");
-  const peakPoint = payload.find((p: any) => p.dataKey === "peak");
+  const avgPoint = payload.find((p) => p.dataKey === "avg");
+  const peakPoint = payload.find((p) => p.dataKey === "peak");
   
   const dir = avgPoint?.payload?.dir ?? peakPoint?.payload?.dir;
 
@@ -61,15 +75,20 @@ function CustomTooltip({ active, payload, label, window }: any) {
 
 // ─── Custom Arrow Shape ───────────────────────────────────────────────────────
 
-const CustomArrow = (props: any) => {
-  const { cx, cy, payload } = props;
-  if (payload.arrow_dir == null) return null;
-  const rotation = payload.arrow_dir;
+interface CustomArrowProps {
+  cx?: number;
+  cy?: number;
+  payload?: { arrow_dir?: number | null };
+}
+
+const CustomArrow = (props: CustomArrowProps) => {
+  if (!props.cx || !props.cy || !props.payload || props.payload.arrow_dir == null) return null;
+  const rotation = props.payload.arrow_dir;
   
   return (
     <svg 
-      x={cx - 10} 
-      y={cy - 10} 
+      x={props.cx - 10} 
+      y={props.cy - 10} 
       width={20} 
       height={20} 
       viewBox="0 0 24 24" 
