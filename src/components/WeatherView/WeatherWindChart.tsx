@@ -148,23 +148,17 @@ export default function WeatherWindChart({
     if (rotation == null) return null;
     
     return (
-      <svg 
-        x={x - 8} 
-        y={y} 
-        width={16} 
-        height={16} 
-        viewBox="0 0 24 24" 
-        style={{ transform: `rotate(${rotation}deg)`, transformOrigin: "center" }}
-      >
+      <g transform={`translate(${x},${y + 12}) rotate(${rotation})`}>
+        <circle cx="0" cy="0" r="10" fill="#f8fafc" />
         <path 
-          d="M12 4L12 20M12 4L7 9M12 4L17 9" 
+          d="M0 -7 L0 7 M0 -7 L-4 -3 M0 -7 L4 -3" 
           stroke="#0284c7" 
-          strokeWidth={2.5} 
+          strokeWidth={2} 
           fill="none" 
           strokeLinecap="round" 
           strokeLinejoin="round" 
         />
-      </svg>
+      </g>
     );
   };
 
