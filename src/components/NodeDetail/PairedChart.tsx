@@ -178,9 +178,10 @@ export default function PairedChart({
           name={avgMetric.label}
           stroke={avgColor}
           strokeWidth={2}
-          dot={{ r: 1.5, strokeWidth: 0 }}
+          dot={false}
           activeDot={{ r: 4 }}
           connectNulls={true}
+          isAnimationActive={false}
         />
 
         {/* Peak — dashed, subordinate */}
@@ -191,10 +192,11 @@ export default function PairedChart({
           stroke={peakColor}
           strokeWidth={1.5}
           strokeDasharray="5 3"
-          dot={{ r: 1.5, strokeWidth: 0 }}
+          dot={false}
           activeDot={{ r: 3 }}
           connectNulls={true}
           opacity={0.6}
+          isAnimationActive={false}
         />
         </LineChart>
       ) : null}

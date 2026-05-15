@@ -167,9 +167,10 @@ export default function MetricChart({ metric, data, window }: Props) {
           dataKey="value"
           stroke={color}
           strokeWidth={2}
-          dot={{ r: 1.5, strokeWidth: 0 }}
+          dot={false}
           activeDot={{ r: 4 }}
           connectNulls={true}
+          isAnimationActive={false}
         />
         </LineChart>
       ) : null}
