@@ -111,55 +111,80 @@ export default function WeatherWindChart({
     return <ChartEmpty label="Wind" />;
   }
 
-  // Determine spacing for arrow indicators based on time window
-  let intervalMs = 3600 * 1000;
-  if (window === "1h") intervalMs = 10 * 60 * 1000; // Every 10 mins
-  else if (window === "6h") intervalMs = 60 * 60 * 1000; // Every 1 hour
-  else if (window === "24h") intervalMs = 2 * 3600 * 1000; // Every 2 hours
-  else if (window === "7d") intervalMs = 24 * 3600 * 1000; // Every 1 day
-  else intervalMs = 3 * 24 * 3600 * 1000; // Every 3 days for 30d
+  // Pre-sort dirData for fast binary search of closest direction
+  const sortedDirData = [...dirData].filter(d => typeof d.value === "number").sort((a, b) => a.ts - b.ts);
 
-  const arrowTicks: number[] = [];
-  const tsDirMap = new Map<number, number>();
+  const getClosestDirection = (targetTs: number): number | null => {
+    if (sortedDirData.length === 0) return null;
+    
+    // Max allowable time difference (1 hour)
+    const MAX_DIFF_MS = 60 * 60 * 1000;
 
-  let currentBucket: number | null = null;
-  for (const p of merged) {
-    const bucket = Math.floor(p.ts / intervalMs);
-    if (bucket !== currentBucket) {
-      if (p.dir !== null) {
-        currentBucket = bucket;
-        arrowTicks.push(p.ts);
-        // Reverse direction: sensor reading is where wind is coming FROM, arrow should show where it's blowing TO
-        tsDirMap.set(p.ts, (p.dir + 180) % 360);
+    let closest = sortedDirData[0];
+    let minDiff = Math.abs(sortedDirData[0].ts - targetTs);
+
+    for (let i = 1; i < sortedDirData.length; i++) {
+      const diff = Math.abs(sortedDirData[i].ts - targetTs);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = sortedDirData[i];
+      }
+      if (sortedDirData[i].ts > targetTs && diff > minDiff) {
+        // Since it's sorted, if we passed the target and the diff is growing, we can break early
+        break;
       }
     }
-  }
 
-  interface CustomArrowTickProps {
+    if (minDiff <= MAX_DIFF_MS) {
+      return (Number(closest.value) + 180) % 360;
+    }
+    return null;
+  };
+
+  interface CustomComboTickProps {
     x?: string | number;
     y?: string | number;
     payload?: { value: number };
   }
 
-  const CustomArrowTick = (props: CustomArrowTickProps) => {
+  const CustomComboTick = (props: CustomComboTickProps) => {
     const { x, y, payload } = props;
     if (x === undefined || y === undefined || payload === undefined || payload.value === undefined) return null;
-    const rotation = tsDirMap.get(payload.value);
-    if (rotation == null) return null;
+    
+    const rotation = getClosestDirection(payload.value);
+    
+    // Y position is the baseline for the text
+    const xPos = Number(x);
+    const yPos = Number(y) + 8; // push text down slightly for margin
     
     return (
-      <g transform={`translate(${x},${Number(y) + 12})`}>
-        <circle cx="0" cy="0" r="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
-        <g transform={`rotate(${rotation})`}>
-          <path 
-            d="M0 -6 L0 6 M0 -6 L-3 -2 M0 -6 L3 -2" 
-            stroke="#0ea5e9" 
-            strokeWidth={2} 
-            fill="none" 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-          />
-        </g>
+      <g>
+        <text 
+          x={xPos} 
+          y={yPos} 
+          dy={4} 
+          textAnchor="middle" 
+          fill="#94a3b8" 
+          fontSize={10}
+        >
+          {formatTimeForWindow(payload.value, window)}
+        </text>
+        
+        {rotation !== null && (
+          <g transform={`translate(${xPos}, ${yPos + 20})`}>
+            <circle cx="0" cy="0" r="10" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
+            <g transform={`rotate(${rotation})`}>
+              <path 
+                d="M0 -6 L0 6 M0 -6 L-3 -2 M0 -6 L3 -2" 
+                stroke="#0ea5e9" 
+                strokeWidth={2} 
+                fill="none" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+              />
+            </g>
+          </g>
+        )}
       </g>
     );
   };
@@ -170,28 +195,15 @@ export default function WeatherWindChart({
         <ComposedChart width={width} height={height} data={merged}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
           <XAxis
-            xAxisId="primary"
             dataKey="ts"
             type="number"
             domain={["dataMin", "dataMax"]}
-            tickFormatter={(ts) => formatTimeForWindow(ts, window)}
-            tick={{ fontSize: 10, fill: "#94a3b8" }}
+            tick={CustomComboTick}
             axisLine={false}
             tickLine={false}
             tickMargin={8}
-            minTickGap={30}
-          />
-          {/* Secondary X-Axis for Direction Arrows */}
-          <XAxis
-            xAxisId="arrows"
-            dataKey="ts"
-            type="number"
-            domain={["dataMin", "dataMax"]}
-            axisLine={false}
-            tickLine={false}
-            ticks={arrowTicks}
-            tick={CustomArrowTick}
-            height={32}
+            minTickGap={40}
+            height={50} // Make sure there is enough height for both text and arrow!
           />
           <YAxis
             domain={[0, "auto"]}
@@ -209,7 +221,6 @@ export default function WeatherWindChart({
             wrapperStyle={{ fontSize: 11, color: "#64748b" }}
           />
           <Line
-            xAxisId="primary"
             name="Peak Gust"
             type="monotone"
             dataKey="peak"
@@ -221,7 +232,6 @@ export default function WeatherWindChart({
             connectNulls
           />
           <Line
-            xAxisId="primary"
             name="Average Speed"
             type="monotone"
             dataKey="avg"
@@ -230,15 +240,6 @@ export default function WeatherWindChart({
             dot={false}
             isAnimationActive={false}
             connectNulls
-          />
-          {/* Dummy line to force the arrows XAxis to render */}
-          <Line
-            xAxisId="arrows"
-            dataKey="avg"
-            stroke="none"
-            dot={false}
-            isAnimationActive={false}
-            activeDot={false}
           />
         </ComposedChart>
       )}
