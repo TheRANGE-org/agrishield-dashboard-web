@@ -67,6 +67,17 @@ export default function Header() {
           >
             Fleet
           </Link>
+          <Link
+            to="/compare"
+            className={[
+              "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+              pathname === "/compare"
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50",
+            ].join(" ")}
+          >
+            Compare
+          </Link>
         </nav>
 
         {/* Spacer */}

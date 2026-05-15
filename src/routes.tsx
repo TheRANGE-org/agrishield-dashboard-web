@@ -3,6 +3,7 @@ import Layout from "./components/shared/Layout";
 import FleetView from "./components/FleetView/FleetView";
 import DiagnosticsView from "./components/DiagnosticsView/DiagnosticsView";
 import NodeDetail from "./components/NodeDetail/NodeDetail";
+import CompareView from "./components/CompareView/CompareView";
 
 export const router = createBrowserRouter([
   {
@@ -12,6 +13,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <FleetView />,
+      },
+      {
+        path: "compare",
+        element: <CompareView />,
       },
       {
         path: "nodes/:nodeId",
