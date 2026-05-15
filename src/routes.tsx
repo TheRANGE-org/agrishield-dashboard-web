@@ -4,6 +4,7 @@ import FleetView from "./components/FleetView/FleetView";
 import DiagnosticsView from "./components/DiagnosticsView/DiagnosticsView";
 import NodeDetail from "./components/NodeDetail/NodeDetail";
 import CompareView from "./components/CompareView/CompareView";
+import WeatherView from "./components/WeatherView/WeatherView";
 
 export const router = createBrowserRouter([
   {
@@ -17,6 +18,10 @@ export const router = createBrowserRouter([
       {
         path: "compare",
         element: <CompareView />,
+      },
+      {
+        path: "weather",
+        element: <WeatherView />,
       },
       {
         path: "nodes/:nodeId",

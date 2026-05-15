@@ -78,6 +78,17 @@ export default function Header() {
           >
             Compare
           </Link>
+          <Link
+            to="/weather"
+            className={[
+              "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+              pathname === "/weather"
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50",
+            ].join(" ")}
+          >
+            Weather
+          </Link>
         </nav>
 
         {/* Spacer */}
