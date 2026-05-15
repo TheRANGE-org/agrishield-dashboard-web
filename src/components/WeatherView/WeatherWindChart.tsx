@@ -143,7 +143,7 @@ export default function WeatherWindChart({
 
   const CustomArrowTick = (props: CustomArrowTickProps) => {
     const { x, y, payload } = props;
-    if (payload === undefined || payload.value === undefined) return null;
+    if (x === undefined || y === undefined || payload === undefined || payload.value === undefined) return null;
     const rotation = tsDirMap.get(payload.value);
     if (rotation == null) return null;
     
