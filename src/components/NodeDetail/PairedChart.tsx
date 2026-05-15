@@ -82,6 +82,8 @@ export default function PairedChart({
   peakData,
   window,
 }: Props) {
+  const { ref, width, height } = useContainerSize();
+
   // Merge both series on ts
   const tsSet = new Map<number, { avg: number | null; peak: number | null }>();
 
@@ -111,8 +113,6 @@ export default function PairedChart({
   const yLabel = avgMetric.unit
     ? `${avgMetric.label} (${avgMetric.unit})`
     : avgMetric.label;
-
-  const { ref, width, height } = useContainerSize();
 
   return (
     <div ref={ref} style={{ width: "100%", height: 220, minWidth: 0 }}>

@@ -90,6 +90,8 @@ function ChartEmpty({ label }: { label: string }) {
 export { ChartSkeleton, ChartEmpty };
 
 export default function MetricChart({ metric, data, window }: Props) {
+  const { ref, width, height } = useContainerSize();
+
   if (data.length === 0) {
     return <ChartEmpty label={metric.label} />;
   }
@@ -105,8 +107,6 @@ export default function MetricChart({ metric, data, window }: Props) {
   const yLabel = metric.unit
     ? `${metric.label} (${metric.unit})`
     : metric.label;
-
-  const { ref, width, height } = useContainerSize();
 
   return (
     <div ref={ref} style={{ width: "100%", height: 220, minWidth: 0 }}>
