@@ -5,6 +5,30 @@ import L from "leaflet";
 import type { FleetNode } from "../../api/types";
 import { computeStatus } from "../../lib/status";
 import { formatCoordinates, formatSecondsSince } from "../../lib/format";
+import {
+  FLEET_MAP_HEIGHT_COMPACT,
+  FLEET_MAP_HEIGHT_EXPANDED,
+} from "../../lib/fleetFilters";
+
+export const FLEET_MAP_HEIGHTS = {
+  compact: FLEET_MAP_HEIGHT_COMPACT,
+  expanded: FLEET_MAP_HEIGHT_EXPANDED,
+} as const;
+
+function nodeSecondsSinceContact(node: FleetNode, nowMs: number): number {
+  const lastContactTs = Math.max(
+    node.latest_reading?.ts ?? 0,
+    node.latest_telemetry?.ts ?? 0
+  );
+  if (lastContactTs > 0) {
+    return Math.floor(nowMs / 1000 - lastContactTs);
+  }
+  return node.seconds_since_contact ?? Number.MAX_SAFE_INTEGER;
+}
+
+function nodeLastContactTs(node: FleetNode): number {
+  return Math.max(node.latest_reading?.ts ?? 0, node.latest_telemetry?.ts ?? 0);
+}
 
 export interface MapFocus {
   nodeId: string;
@@ -44,18 +68,20 @@ const STATUS_ICON: Record<string, L.DivIcon> = {
 
 interface FitBoundsOnceProps {
   nodes: FleetNode[];
+  /** When this changes, bounds are refit (e.g. site filter or map expand). */
+  refitKey: string;
 }
 
 /**
- * Fits the map viewport to all node positions on first render only.
- * Subsequent fleet updates do NOT refit — preserves user's zoom/pan (Q3).
+ * Fits the map viewport to node positions on first render and when refitKey changes.
+ * Does not refit on every poll — only when the visible node set meaningfully changes.
  */
-function FitBoundsOnce({ nodes }: FitBoundsOnceProps) {
+function FitBoundsOnce({ nodes, refitKey }: FitBoundsOnceProps) {
   const map = useMap();
-  const fitted = useRef(false);
+  const lastRefitKey = useRef<string | null>(null);
 
   useEffect(() => {
-    if (fitted.current) return;
+    if (lastRefitKey.current === refitKey) return;
     const withCoords = nodes.filter(
       (n) => n.latitude !== null && n.longitude !== null
     );
@@ -65,8 +91,19 @@ function FitBoundsOnce({ nodes }: FitBoundsOnceProps) {
       withCoords.map((n) => [n.latitude!, n.longitude!])
     );
     map.fitBounds(bounds, { padding: [40, 40] });
-    fitted.current = true;
-  }, [map, nodes]);
+    lastRefitKey.current = refitKey;
+  }, [map, nodes, refitKey]);
+
+  return null;
+}
+
+function MapResizeHandler({ height }: { height: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => map.invalidateSize(), 150);
+    return () => window.clearTimeout(timer);
+  }, [map, height]);
 
   return null;
 }
@@ -109,19 +146,33 @@ interface FleetMapProps {
   nodes: FleetNode[];
   nowMs: number;
   focus?: MapFocus | null;
+  expanded?: boolean;
+  refitKey?: string;
 }
 
-export default function FleetMap({ nodes, nowMs, focus = null }: FleetMapProps) {
+export default function FleetMap({
+  nodes,
+  nowMs,
+  focus = null,
+  expanded = false,
+  refitKey = "default",
+}: FleetMapProps) {
   const markerRefs = useRef<Record<string, L.Marker>>({});
+  const mapHeight = expanded
+    ? FLEET_MAP_HEIGHT_EXPANDED
+    : FLEET_MAP_HEIGHT_COMPACT;
   const nodesWithCoords = nodes.filter(
     (n) => n.latitude !== null && n.longitude !== null
   );
 
   if (nodesWithCoords.length === 0) {
     return (
-      <div className="w-full rounded-xl border border-dashed border-slate-200 flex items-center justify-center text-sm text-slate-400 bg-slate-50"
-        style={{ height: 240 }}>
+      <div
+        className="w-full rounded-xl border border-dashed border-slate-200 flex items-center justify-center text-sm text-slate-400 bg-slate-50"
+        style={{ height: mapHeight }}
+      >
         No node coordinates available
+        {nodes.length > 0 && " for this site"}
       </div>
     );
   }
@@ -134,8 +185,8 @@ export default function FleetMap({ nodes, nowMs, focus = null }: FleetMapProps) 
 
   return (
     <div
-      className="w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm"
-      style={{ height: 280 }}
+      className="w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm transition-[height] duration-300 ease-in-out"
+      style={{ height: mapHeight }}
       aria-label="Sensor node map"
     >
       <MapContainer
@@ -150,15 +201,15 @@ export default function FleetMap({ nodes, nowMs, focus = null }: FleetMapProps) 
           maxZoom={19}
         />
 
-        <FitBoundsOnce nodes={nodesWithCoords} />
+        <FitBoundsOnce nodes={nodesWithCoords} refitKey={refitKey} />
+        <MapResizeHandler height={mapHeight} />
         <FlyToFocus focus={focus} markerRefs={markerRefs} />
 
         {nodesWithCoords.map((node) => {
           const coordsLabel = formatCoordinates(node.latitude, node.longitude);
-          const secondsSince = node.latest_reading
-            ? Math.floor(nowMs / 1000 - node.latest_reading.ts)
-            : node.seconds_since_contact;
+          const secondsSince = nodeSecondsSinceContact(node, nowMs);
           const status = computeStatus(secondsSince);
+          const lastContactTs = nodeLastContactTs(node);
           const icon = STATUS_ICON[status] ?? STATUS_ICON.dead;
 
           return (
@@ -190,8 +241,8 @@ export default function FleetMap({ nodes, nowMs, focus = null }: FleetMapProps) 
                       {status.charAt(0).toUpperCase() + status.slice(1)}
                     </span>
                     {" · "}
-                    {node.latest_reading
-                      ? formatSecondsSince(nowMs, node.latest_reading.ts)
+                    {lastContactTs > 0
+                      ? formatSecondsSince(nowMs, lastContactTs)
                       : "no contact"}
                   </p>
                   {/* React-Router Link inside Leaflet popup */}
