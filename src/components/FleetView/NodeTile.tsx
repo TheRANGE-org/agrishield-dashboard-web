@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, ChevronUp, Cpu, MemoryStick, HardDrive, Thermometer } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, MapPin, MemoryStick, HardDrive, Thermometer } from "lucide-react";
 import type { FleetNode } from "../../api/types";
 import type { Catalog } from "../../api/types";
 import {
@@ -9,7 +9,7 @@ import {
   computeSensorHealth,
   computeConnectivityWarning,
 } from "../../lib/status";
-import { formatSecondsSince, formatUptime } from "../../lib/format";
+import { formatCoordinates, formatSecondsSince, formatUptime } from "../../lib/format";
 import StatusBadge from "./StatusBadge";
 import BatteryIndicator from "./BatteryIndicator";
 import SensorHealthPill from "./SensorHealthPill";
@@ -19,6 +19,7 @@ interface NodeTileProps {
   node: FleetNode;
   nowMs: number; // from useTicker
   catalog: Catalog;
+  onShowOnMap?: (node: FleetNode) => void;
 }
 
 const STATUS_BG: Record<string, string> = {
@@ -27,7 +28,12 @@ const STATUS_BG: Record<string, string> = {
   dead: "bg-red-50/60 border-red-200",
 };
 
-export default function NodeTile({ node, nowMs, catalog: _catalog }: NodeTileProps) {  // eslint-disable-line @typescript-eslint/no-unused-vars
+export default function NodeTile({
+  node,
+  nowMs,
+  catalog: _catalog, // eslint-disable-line @typescript-eslint/no-unused-vars
+  onShowOnMap,
+}: NodeTileProps) {
   const [expanded, setExpanded] = useState(false);
 
   // Recompute status from live ticker so it transitions between polls
@@ -72,6 +78,8 @@ export default function NodeTile({ node, nowMs, catalog: _catalog }: NodeTilePro
   const humPct = readingValues["bme688_humidity_pct"];
   const pm25 = readingValues["sps30_pm2_5"];
   const co2 = readingValues["scd41_co2_ppm"];
+  const coordsLabel = formatCoordinates(node.latitude, node.longitude);
+  const hasCoords = coordsLabel !== null;
 
   const borderClass = STATUS_BG[liveStatus] ?? STATUS_BG.live;
 
@@ -93,6 +101,33 @@ export default function NodeTile({ node, nowMs, catalog: _catalog }: NodeTilePro
             {node.nodeId}
           </h2>
           <p className="text-xs text-slate-500 truncate">{node.siteId}</p>
+          <div className="mt-1.5 flex items-start gap-1">
+            <MapPin
+              className="h-3 w-3 text-slate-400 shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <span className="text-xs text-slate-400 block leading-none">
+                Location
+              </span>
+              <span className="text-xs font-medium text-slate-700 tabular-nums block truncate">
+                {coordsLabel ?? "Not set"}
+              </span>
+              {hasCoords && onShowOnMap && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onShowOnMap(node);
+                  }}
+                  className="mt-0.5 text-xs font-medium text-green-700 hover:text-green-800 hover:underline"
+                >
+                  Show on map
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Battery top-right */}

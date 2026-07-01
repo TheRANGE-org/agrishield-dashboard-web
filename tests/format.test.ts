@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatSecondsSince, formatUptime } from "../src/lib/format";
+import { formatCoordinates, formatSecondsSince, formatUptime } from "../src/lib/format";
 import { formatTimeForWindow, degreesToCompassPoint } from "../src/lib/timeWindow";
 
 describe("formatSecondsSince", () => {
@@ -28,6 +28,22 @@ describe("formatSecondsSince", () => {
   it("formats days ago", () => {
     const ts = baseMs / 1000 - 172800;
     expect(formatSecondsSince(baseMs, ts)).toBe("2d ago");
+  });
+});
+
+describe("formatCoordinates", () => {
+  it("formats lat/lng to 5 decimal places", () => {
+    expect(formatCoordinates(35.23604, -101.93901)).toBe(
+      "35.23604, -101.93901"
+    );
+  });
+
+  it("returns null when latitude is missing", () => {
+    expect(formatCoordinates(null, -101.93901)).toBeNull();
+  });
+
+  it("returns null when longitude is missing", () => {
+    expect(formatCoordinates(35.23604, null)).toBeNull();
   });
 });
 

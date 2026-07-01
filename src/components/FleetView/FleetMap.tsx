@@ -4,7 +4,15 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { FleetNode } from "../../api/types";
 import { computeStatus } from "../../lib/status";
-import { formatSecondsSince } from "../../lib/format";
+import { formatCoordinates, formatSecondsSince } from "../../lib/format";
+
+export interface MapFocus {
+  nodeId: string;
+  lat: number;
+  lng: number;
+  /** Changes on each focus request so repeat clicks re-trigger flyTo. */
+  at: number;
+}
 
 // Leaflet default marker icon path fix for bundlers
 // (Leaflet's default icon asset URLs break under Vite's asset hashing)
@@ -63,14 +71,48 @@ function FitBoundsOnce({ nodes }: FitBoundsOnceProps) {
   return null;
 }
 
+// ─── Fly-to focused node ──────────────────────────────────────────────────────
+
+interface FlyToFocusProps {
+  focus: MapFocus | null;
+  markerRefs: React.MutableRefObject<Record<string, L.Marker>>;
+}
+
+/**
+ * Flies the map to a user-selected node and opens its marker popup.
+ * Intentional user navigation — does not interfere with FitBoundsOnce.
+ */
+function FlyToFocus({ focus, markerRefs }: FlyToFocusProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!focus) return;
+
+    map.flyTo([focus.lat, focus.lng], 15, { duration: 0.8 });
+
+    const openPopup = () => {
+      markerRefs.current[focus.nodeId]?.openPopup();
+    };
+    // Open after flyTo completes so the popup is centered in view.
+    map.once("moveend", openPopup);
+    return () => {
+      map.off("moveend", openPopup);
+    };
+  }, [map, focus, markerRefs]);
+
+  return null;
+}
+
 // ─── FleetMap ─────────────────────────────────────────────────────────────────
 
 interface FleetMapProps {
   nodes: FleetNode[];
   nowMs: number;
+  focus?: MapFocus | null;
 }
 
-export default function FleetMap({ nodes, nowMs }: FleetMapProps) {
+export default function FleetMap({ nodes, nowMs, focus = null }: FleetMapProps) {
+  const markerRefs = useRef<Record<string, L.Marker>>({});
   const nodesWithCoords = nodes.filter(
     (n) => n.latitude !== null && n.longitude !== null
   );
@@ -109,8 +151,10 @@ export default function FleetMap({ nodes, nowMs }: FleetMapProps) {
         />
 
         <FitBoundsOnce nodes={nodesWithCoords} />
+        <FlyToFocus focus={focus} markerRefs={markerRefs} />
 
         {nodesWithCoords.map((node) => {
+          const coordsLabel = formatCoordinates(node.latitude, node.longitude);
           const secondsSince = node.latest_reading
             ? Math.floor(nowMs / 1000 - node.latest_reading.ts)
             : node.seconds_since_contact;
@@ -120,6 +164,9 @@ export default function FleetMap({ nodes, nowMs }: FleetMapProps) {
           return (
             <Marker
               key={node.nodeId}
+              ref={(ref) => {
+                if (ref) markerRefs.current[node.nodeId] = ref;
+              }}
               position={[node.latitude!, node.longitude!]}
               icon={icon}
             >
@@ -127,6 +174,9 @@ export default function FleetMap({ nodes, nowMs }: FleetMapProps) {
                 <div className="text-sm space-y-1">
                   <p className="font-semibold text-slate-800">{node.nodeId}</p>
                   <p className="text-slate-500 text-xs">{node.siteId}</p>
+                  {coordsLabel && (
+                    <p className="text-slate-500 text-xs tabular-nums">{coordsLabel}</p>
+                  )}
                   <p className="text-xs">
                     <span
                       className={

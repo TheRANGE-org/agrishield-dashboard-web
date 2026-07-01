@@ -61,6 +61,18 @@ export function formatMetricValue(
 }
 
 /**
+ * Formats latitude/longitude for display on fleet tiles.
+ * Returns null when either coordinate is missing.
+ */
+export function formatCoordinates(
+  lat: number | null,
+  lng: number | null
+): string | null {
+  if (lat === null || lng === null) return null;
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+/**
  * Formats an uptime in seconds to a human-readable string.
  * e.g. "7d 4h" or "3h 12m" or "42s"
  */

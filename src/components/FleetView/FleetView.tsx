@@ -1,17 +1,32 @@
+import { useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useFleet } from "../../hooks/useFleet";
 import { useMetadata } from "../../hooks/useMetadata";
 import { useTicker } from "../../hooks/useTicker";
+import type { FleetNode } from "../../api/types";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
 import NodeTile from "./NodeTile";
-import FleetMap from "./FleetMap";
+import FleetMap, { type MapFocus } from "./FleetMap";
 import { formatDateTime } from "../../lib/format";
 
 export default function FleetView() {
   const { fleet, isLoading, error, lastUpdated } = useFleet();
   const { catalog, isLoading: catalogLoading } = useMetadata();
   const nowMs = useTicker(1000);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [mapFocus, setMapFocus] = useState<MapFocus | null>(null);
+
+  function handleShowOnMap(node: FleetNode) {
+    if (node.latitude === null || node.longitude === null) return;
+    setMapFocus({
+      nodeId: node.nodeId,
+      lat: node.latitude,
+      lng: node.longitude,
+      at: Date.now(),
+    });
+    mapContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   // Loading state — catalog and fleet both needed
   if (isLoading || catalogLoading) {
@@ -78,8 +93,8 @@ export default function FleetView() {
       </div>
 
       {/* ── Map ────────────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <FleetMap nodes={fleet.nodes} nowMs={nowMs} />
+      <div ref={mapContainerRef} className="mb-6">
+        <FleetMap nodes={fleet.nodes} nowMs={nowMs} focus={mapFocus} />
       </div>
 
       {/* ── Node grid ──────────────────────────────────────────────── */}
@@ -94,6 +109,7 @@ export default function FleetView() {
               node={node}
               nowMs={nowMs}
               catalog={catalog}
+              onShowOnMap={handleShowOnMap}
             />
           ))}
         </div>
