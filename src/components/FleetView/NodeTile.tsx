@@ -36,14 +36,21 @@ export default function NodeTile({
 }: NodeTileProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Recompute status from live ticker so it transitions between polls
-  const secondsSince = Math.floor(nowMs / 1000 - (node.latest_reading?.ts ?? 0));
-  const liveStatus = computeStatus(
-    node.latest_reading ? secondsSince : node.seconds_since_contact + Math.floor((nowMs / 1000) - (Date.now() / 1000))
+  // Recompute status from live ticker so it transitions between polls.
+  // Use the most recent contact across reading or telemetry (matches API).
+  const lastContactTs = Math.max(
+    node.latest_reading?.ts ?? 0,
+    node.latest_telemetry?.ts ?? 0,
   );
+  const secondsSince =
+    lastContactTs > 0
+      ? Math.floor(nowMs / 1000 - lastContactTs)
+      : node.seconds_since_contact;
+  const liveStatus =
+    lastContactTs > 0
+      ? computeStatus(secondsSince)
+      : computeStatus(node.seconds_since_contact ?? Number.MAX_SAFE_INTEGER);
 
-  // Use actual seconds from ticker against last reading ts
-  const lastReadingTs = node.latest_reading?.ts ?? null;
   const telemetryValues = node.latest_telemetry?.values ?? {};
   const readingValues = node.latest_reading?.values ?? {};
 
@@ -150,8 +157,8 @@ export default function NodeTile({
                   : "text-red-600",
             ].join(" ")}
           >
-            {lastReadingTs !== null
-              ? formatSecondsSince(nowMs, lastReadingTs)
+            {lastContactTs > 0
+              ? formatSecondsSince(nowMs, lastContactTs)
               : "never"}
           </span>
         </span>
