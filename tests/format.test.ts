@@ -78,8 +78,8 @@ describe("formatTimeForWindow", () => {
     expect(result).toMatch(/^\d{2}:\d{2}$/);
   });
 
-  it("returns HH:MM format for 6h window", () => {
-    expect(formatTimeForWindow(TS, "6h")).toMatch(/^\d{2}:\d{2}$/);
+  it("returns HH:MM format for 4h window", () => {
+    expect(formatTimeForWindow(TS, "4h")).toMatch(/^\d{2}:\d{2}$/);
   });
 
   it("returns HH:MM format for 24h window", () => {

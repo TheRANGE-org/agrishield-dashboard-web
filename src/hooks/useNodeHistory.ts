@@ -1,8 +1,11 @@
 import useSWR from "swr";
 import { fetchQuery } from "../api/query";
 import type { QueryResponse } from "../api/query";
-import type { TimeWindow } from "../lib/timeWindow";
-import { windowToQueryParams } from "../lib/timeWindow";
+import {
+  type ChartTimeSelection,
+  selectionCacheKey,
+  selectionToQueryParams,
+} from "../lib/timeWindow";
 
 export interface HistoryData {
   response: QueryResponse;
@@ -18,26 +21,23 @@ interface UseNodeHistoryResult {
 /**
  * Fetches historical time-series data for one node and a set of metrics.
  *
- * SWR caches by (nodeId, source, sortedMetrics, window) key.
+ * SWR caches by (nodeId, source, sortedMetrics, selection) key.
  * Revalidates on focus, but does NOT auto-poll (historical data doesn't need
  * 30s refresh — only on page open or window change).
- *
- * Uses the columnar JSON response path (agg≠raw).
  */
 export function useNodeHistory(
   nodeId: string,
   source: "readings" | "telemetry",
   metrics: string[],
-  window: TimeWindow
+  selection: ChartTimeSelection
 ): UseNodeHistoryResult {
-  // Stable SWR key: sort metrics to avoid cache misses on reorder
   const sortedMetrics = [...metrics].sort();
-  const cacheKey = `node-history:${nodeId}:${source}:${sortedMetrics.join(",")}:${window}`;
+  const cacheKey = `node-history:${nodeId}:${source}:${sortedMetrics.join(",")}:${selectionCacheKey(selection)}`;
 
   const { data, error, isLoading } = useSWR<HistoryData>(
     cacheKey,
     async () => {
-      const params = windowToQueryParams(window);
+      const params = selectionToQueryParams(selection);
       const query = {
         source,
         node_ids: [nodeId],
@@ -52,7 +52,6 @@ export function useNodeHistory(
       return { response, fetchedAt: Date.now() };
     },
     {
-      // No auto-refresh for historical charts — refresh on focus only
       revalidateOnFocus: true,
       refreshInterval: 0,
     }

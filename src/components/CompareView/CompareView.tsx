@@ -46,7 +46,7 @@ function NodeMetricRow({
     nodeId,
     "readings",
     metricsToFetch,
-    window
+    { kind: "preset", window }
   );
 
   const series = historyData ? transformQueryResponse(historyData.response) : null;

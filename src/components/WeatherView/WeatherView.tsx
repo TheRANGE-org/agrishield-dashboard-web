@@ -42,7 +42,7 @@ export default function WeatherView() {
     activeNodeId,
     "readings",
     WEATHER_METRICS,
-    window
+    { kind: "preset", window }
   );
 
   if (fleetLoading || catalogLoading) return <LoadingState message="Loading..." />;

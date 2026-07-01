@@ -7,7 +7,7 @@ interface Props {
 
 const WINDOWS: { label: string; value: TimeWindow }[] = [
   { label: "1h", value: "1h" },
-  { label: "6h", value: "6h" },
+  { label: "4h", value: "4h" },
   { label: "24h", value: "24h" },
   { label: "7d", value: "7d" },
   { label: "30d", value: "30d" },

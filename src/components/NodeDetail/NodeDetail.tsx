@@ -8,10 +8,12 @@ import { useTicker } from "../../hooks/useTicker";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
 import TimeWindowSelector from "./TimeWindowSelector";
+import HistoricalPeriodNav from "./HistoricalPeriodNav";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
 import PairedChart from "./PairedChart";
 import TelemetryPanel from "./TelemetryPanel";
-import type { TimeWindow } from "../../lib/timeWindow";
+import type { ChartTimeSelection, TimeWindow } from "../../lib/timeWindow";
+import { chartAxisWindow } from "../../lib/timeWindow";
 import { transformQueryResponse, hasData } from "../../lib/chartData";
 import type { FleetNode, Catalog, MetricMetadata } from "../../api/types";
 import {
@@ -210,7 +212,31 @@ function ChartCard({ title, children }: ChartCardProps) {
 export default function NodeDetail() {
   const { nodeId } = useParams<{ nodeId: string }>();
   const [window, setWindow] = useState<TimeWindow>("24h");
+  const [historicalPeriod, setHistoricalPeriod] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
+
+  const chartSelection = useMemo<ChartTimeSelection>(
+    () =>
+      historicalPeriod !== null
+        ? { kind: "historical", periodIndex: historicalPeriod }
+        : { kind: "preset", window },
+    [historicalPeriod, window]
+  );
+  const axisWindow = chartAxisWindow(chartSelection);
+
+  function handleWindowChange(next: TimeWindow) {
+    setWindow(next);
+    setHistoricalPeriod(null);
+  }
+
+  function handleHistoricalPrevious() {
+    setWindow("30d");
+    setHistoricalPeriod((prev) => (prev === null ? 0 : prev + 1));
+  }
+
+  function handleHistoricalNext() {
+    setHistoricalPeriod((prev) => (prev === null || prev === 0 ? null : prev - 1));
+  }
 
   const { fleet, isLoading: fleetLoading, error: fleetError } = useFleet();
   const { catalog, isLoading: catalogLoading } = useMetadata();
@@ -232,7 +258,7 @@ export default function NodeDetail() {
     nodeId ?? "",
     "readings",
     headlineMetricNames,
-    window
+    chartSelection
   );
 
   // ── "Show all" additional metrics query ──────────────────────────────────
@@ -249,7 +275,7 @@ export default function NodeDetail() {
     nodeId ?? "",
     "readings",
     allReadingNames,
-    window
+    chartSelection
   );
 
   // ── Telemetry query (for TelemetryPanel) ──────────────────────────────────
@@ -260,7 +286,7 @@ export default function NodeDetail() {
     nodeId ?? "",
     "telemetry",
     [], // empty = all
-    window
+    chartSelection
   );
   void telemetryHistoryData; // future use
 
@@ -336,7 +362,7 @@ export default function NodeDetail() {
               peakMetric={pairedMeta}
               avgData={avgData}
               peakData={peakData}
-              window={window}
+              window={axisWindow}
             />
           )}
         </ChartCard>
@@ -351,7 +377,7 @@ export default function NodeDetail() {
         ) : !hasData(data) ? (
           <ChartEmpty label={primaryMeta.label} />
         ) : (
-          <MetricChart metric={primaryMeta} data={data} window={window} />
+          <MetricChart metric={primaryMeta} data={data} window={axisWindow} />
         )}
       </ChartCard>
     );
@@ -393,7 +419,7 @@ export default function NodeDetail() {
               peakMetric={pairMeta}
               avgData={data}
               peakData={pairData}
-              window={window}
+              window={axisWindow}
             />
           )}
         </ChartCard>
@@ -407,7 +433,7 @@ export default function NodeDetail() {
         ) : !hasData(data) ? (
           <ChartEmpty label={meta.label} />
         ) : (
-          <MetricChart metric={meta} data={data} window={window} />
+          <MetricChart metric={meta} data={data} window={axisWindow} />
         )}
       </ChartCard>
     );
@@ -431,8 +457,15 @@ export default function NodeDetail() {
           <p className="text-sm text-slate-500 mt-0.5">Site: {node.siteId}</p>
         </div>
 
-        {/* Time window selector */}
-        <TimeWindowSelector value={window} onChange={setWindow} />
+        <div className="flex flex-col items-end gap-2">
+          <TimeWindowSelector value={window} onChange={handleWindowChange} />
+          <HistoricalPeriodNav
+            window={window}
+            historicalPeriod={historicalPeriod}
+            onPrevious={handleHistoricalPrevious}
+            onNext={handleHistoricalNext}
+          />
+        </div>
       </div>
 
       {/* ── Latest-state strip ────────────────────────────────────────────── */}
