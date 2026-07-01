@@ -9,6 +9,7 @@ import { ChartSkeleton, ChartEmpty } from "../NodeDetail/MetricChart";
 import PairedChart from "../NodeDetail/PairedChart";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
+import ChartLoadingOverlay from "../shared/ChartLoadingOverlay";
 import { transformQueryResponse, hasData } from "../../lib/chartData";
 import type { Catalog, MetricMetadata } from "../../api/types";
 
@@ -42,7 +43,7 @@ function NodeMetricRow({
 }) {
   const metricsToFetch = pairMetric ? [metric.name, pairMetric.name] : [metric.name];
   
-  const { data: historyData, isLoading } = useNodeHistory(
+  const { data: historyData, isLoading, isValidating } = useNodeHistory(
     nodeId,
     "readings",
     metricsToFetch,
@@ -52,6 +53,7 @@ function NodeMetricRow({
   const series = historyData ? transformQueryResponse(historyData.response) : null;
   const data = series?.[metric.name] ?? [];
   const pairData = pairMetric ? (series?.[pairMetric.name] ?? []) : [];
+  const chartsBusy = isLoading || isValidating;
   
   const hasAny = pairMetric ? (hasData(data) || hasData(pairData)) : hasData(data);
 
@@ -60,8 +62,9 @@ function NodeMetricRow({
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
         <h3 className="text-sm font-semibold text-slate-800">{nodeId}</h3>
       </div>
-      <div className="px-2 pt-2 pb-4 h-[240px]">
-        {isLoading && !series ? (
+      <div className="relative px-2 pt-2 pb-4 h-[240px]">
+        <ChartLoadingOverlay active={chartsBusy} />
+        {chartsBusy && !series ? (
           <ChartSkeleton />
         ) : !hasAny ? (
           <ChartEmpty label={pairMetric ? `${metric.label} / ${pairMetric.label}` : metric.label} />

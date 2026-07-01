@@ -43,10 +43,25 @@ export function batteryStatusColor(status: BatteryStatus): string {
 
 // ─── Sensor health ────────────────────────────────────────────────────────────
 
-interface SensorHealthCounts {
+export interface SensorHealthResult {
   healthy: number;
   total: number;
+  /** Human-readable labels for initialized sensors that are unhealthy. */
+  unhealthyLabels: string[];
 }
+
+const MONITORED_SENSORS = [
+  {
+    label: "SPS30",
+    init: "sensor_health_sps30_is_initialized",
+    errors: "sensor_health_sps30_error_count",
+  },
+  {
+    label: "SCD41",
+    init: "sensor_health_scd41_is_initialized",
+    errors: "sensor_health_scd41_error_count",
+  },
+] as const;
 
 /**
  * Computes "X/Y healthy" from telemetry values.
@@ -55,27 +70,128 @@ interface SensorHealthCounts {
  */
 export function computeSensorHealth(
   values: Record<string, number | string | boolean | null>
-): SensorHealthCounts {
-  const sensors = [
-    { init: "sensor_health_sps30_is_initialized", errors: "sensor_health_sps30_error_count" },
-    { init: "sensor_health_scd41_is_initialized", errors: "sensor_health_scd41_error_count" },
-  ];
-
+): SensorHealthResult {
   let healthy = 0;
   let total = 0;
+  const unhealthyLabels: string[] = [];
 
-  for (const s of sensors) {
-    const initialized = values[s.init];
+  for (const sensor of MONITORED_SENSORS) {
+    const initialized = values[sensor.init];
     if (initialized === true) {
       total++;
-      const errorCount = values[s.errors];
+      const errorCount = values[sensor.errors];
       if (typeof errorCount === "number" && errorCount === 0) {
         healthy++;
+      } else {
+        const err =
+          typeof errorCount === "number" ? ` (${errorCount} errors)` : "";
+        unhealthyLabels.push(`${sensor.label}${err}`);
       }
     }
   }
 
-  return { healthy, total };
+  return { healthy, total, unhealthyLabels };
+}
+
+// ─── Pi throttling (vcgencmd get_throttled) ───────────────────────────────────
+
+const THROTTLE_FLAG_BITS = [
+  { bit: 0, label: "Undervoltage detected", current: true },
+  { bit: 1, label: "ARM frequency capped", current: true },
+  { bit: 2, label: "Currently throttled", current: true },
+  { bit: 3, label: "Soft temperature limit active", current: true },
+  { bit: 16, label: "Undervoltage since boot", current: false },
+  { bit: 17, label: "ARM frequency capped since boot", current: false },
+  { bit: 18, label: "Throttled since boot", current: false },
+  { bit: 19, label: "Soft temperature limit since boot", current: false },
+] as const;
+
+export type ThrottleSeverity = "none" | "info" | "critical";
+
+export interface DecodedThrottledState {
+  isHealthy: boolean;
+  severity: ThrottleSeverity;
+  raw: string;
+  currentIssues: string[];
+  historicalIssues: string[];
+  /** Short text for badges. */
+  shortLabel: string;
+  /** Full explanation for system health panel. */
+  summary: string;
+}
+
+/**
+ * Decodes Raspberry Pi `vcgencmd get_throttled` hex bitmask.
+ * Bits 0–3 are active conditions; bits 16–19 are historical since boot.
+ */
+export function decodePiThrottledState(
+  raw: string | null | undefined
+): DecodedThrottledState {
+  const empty: DecodedThrottledState = {
+    isHealthy: true,
+    severity: "none",
+    raw: raw ?? "0x0",
+    currentIssues: [],
+    historicalIssues: [],
+    shortLabel: "OK",
+    summary: "No throttling or power issues reported.",
+  };
+
+  if (!raw || raw === "0x0" || raw === "0") {
+    return empty;
+  }
+
+  const parsed = Number.parseInt(raw.replace(/^0x/i, ""), 16);
+  if (Number.isNaN(parsed)) {
+    return {
+      isHealthy: false,
+      severity: "info",
+      raw,
+      currentIssues: [],
+      historicalIssues: [`Unknown throttled state: ${raw}`],
+      shortLabel: raw,
+      summary: `Unrecognized throttled state value: ${raw}`,
+    };
+  }
+
+  const currentIssues: string[] = [];
+  const historicalIssues: string[] = [];
+
+  for (const { bit, label, current } of THROTTLE_FLAG_BITS) {
+    if ((parsed & (1 << bit)) !== 0) {
+      (current ? currentIssues : historicalIssues).push(label);
+    }
+  }
+
+  const severity: ThrottleSeverity =
+    currentIssues.length > 0 ? "critical" : "info";
+
+  let shortLabel: string;
+  if (currentIssues.length > 0) {
+    shortLabel = currentIssues[0];
+  } else if (historicalIssues.length > 0) {
+    shortLabel = `Past issue: ${historicalIssues[0]}`;
+  } else {
+    shortLabel = raw;
+  }
+
+  const parts: string[] = [];
+  if (currentIssues.length > 0) {
+    parts.push(`Active: ${currentIssues.join("; ")}`);
+  }
+  if (historicalIssues.length > 0) {
+    parts.push(`Since boot: ${historicalIssues.join("; ")}`);
+  }
+
+  return {
+    isHealthy: false,
+    severity,
+    raw,
+    currentIssues,
+    historicalIssues,
+    shortLabel,
+    summary: parts.join(". ") || raw,
+  };
 }
 
 // ─── Connectivity warnings ────────────────────────────────────────────────────

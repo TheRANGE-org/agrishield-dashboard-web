@@ -6,6 +6,7 @@ import type { TimeWindow } from "../../lib/timeWindow";
 import TimeWindowSelector from "../NodeDetail/TimeWindowSelector";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
+import ChartLoadingOverlay from "../shared/ChartLoadingOverlay";
 import { transformQueryResponse } from "../../lib/chartData";
 import WeatherCurrentReadings from "./WeatherCurrentReadings";
 
@@ -38,12 +39,14 @@ export default function WeatherView() {
 
   const activeNodeId = selectedNodeId || defaultNode || "";
 
-  const { data: historyData, isLoading: historyLoading } = useNodeHistory(
+  const { data: historyData, isLoading: historyLoading, isValidating: historyValidating } = useNodeHistory(
     activeNodeId,
     "readings",
     WEATHER_METRICS,
     { kind: "preset", window }
   );
+
+  const historyBusy = historyLoading || historyValidating;
 
   if (fleetLoading || catalogLoading) return <LoadingState message="Loading..." />;
   if (fleetError) return <ErrorState message="Error" detail={fleetError.message} />;
@@ -77,12 +80,14 @@ export default function WeatherView() {
 
       <WeatherCurrentReadings series={series} />
 
-      {historyLoading && !series ? (
+      {historyBusy && !series ? (
         <div className="h-64 flex items-center justify-center">
           <div className="animate-spin h-8 w-8 rounded-full border-2 border-slate-200 border-t-sky-600" />
         </div>
       ) : series ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="relative">
+          <ChartLoadingOverlay active={historyBusy} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
               <h3 className="text-sm font-semibold text-slate-800">Temperature</h3>
@@ -141,6 +146,7 @@ export default function WeatherView() {
               />
             </div>
           </div>
+        </div>
         </div>
       ) : null}
     </div>

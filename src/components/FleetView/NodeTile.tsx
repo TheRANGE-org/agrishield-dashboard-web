@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, ChevronUp, Cpu, MapPin, MemoryStick, HardDrive, Thermometer } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, MapPin, MemoryStick, HardDrive, Thermometer, Zap } from "lucide-react";
 import type { FleetNode } from "../../api/types";
 import type { Catalog } from "../../api/types";
 import {
@@ -8,6 +8,7 @@ import {
   parseBatteryStatus,
   computeSensorHealth,
   computeConnectivityWarning,
+  decodePiThrottledState,
 } from "../../lib/status";
 import { formatCoordinates, formatSecondsSince, formatUptime } from "../../lib/format";
 import StatusBadge from "./StatusBadge";
@@ -70,6 +71,9 @@ export default function NodeTile({
 
   // Conditional badge values
   const throttledState = telemetryValues["system_health_rpi_throttled_state"];
+  const throttleInfo = decodePiThrottledState(
+    typeof throttledState === "string" ? throttledState : null
+  );
   const pendingBatches = telemetryValues["system_health_queue_pending_batches"];
   const wifiSignalDbm = telemetryValues["system_health_wifi_signal_level_dbm"];
 
@@ -165,6 +169,7 @@ export default function NodeTile({
         <SensorHealthPill
           healthy={sensorHealth.healthy}
           total={sensorHealth.total}
+          unhealthyLabels={sensorHealth.unhealthyLabels}
         />
       </div>
 
@@ -189,7 +194,7 @@ export default function NodeTile({
       </div>
 
       {/* ── Conditional degradation badges ───────────────────────── */}
-      {(throttledState !== "0x0" ||
+      {(!throttleInfo.isHealthy ||
         (typeof pendingBatches === "number" && pendingBatches > 0) ||
         connectivity.tailscaleDown ||
         connectivity.wifiPoor) && (
@@ -258,6 +263,34 @@ export default function NodeTile({
               }
               warn={typeof diskPct === "number" && diskPct > 90}
             />
+            {!throttleInfo.isHealthy && (
+              <div className="col-span-2 flex items-start gap-1.5 pt-1 border-t border-slate-100">
+                <span className="mt-0.5 shrink-0">
+                  <Zap
+                    className={`h-3.5 w-3.5 ${
+                      throttleInfo.severity === "critical"
+                        ? "text-red-500"
+                        : "text-amber-500"
+                    }`}
+                    aria-hidden
+                  />
+                </span>
+                <div>
+                  <span className="text-xs text-slate-400 block leading-none">
+                    Power / thermal ({throttleInfo.raw})
+                  </span>
+                  <span
+                    className={`text-xs font-medium leading-snug ${
+                      throttleInfo.severity === "critical"
+                        ? "text-red-700"
+                        : "text-amber-700"
+                    }`}
+                  >
+                    {throttleInfo.summary}
+                  </span>
+                </div>
+              </div>
+            )}
             {uptimeSeconds !== null && (
               <div className="col-span-2 pt-1 text-xs text-slate-400 border-t border-slate-100 mt-1">
                 Uptime: <span className="text-slate-600 font-medium">{formatUptime(uptimeSeconds)}</span>

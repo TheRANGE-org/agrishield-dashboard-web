@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { transformQueryResponse, hasData } from "../src/lib/chartData";
+import { transformQueryResponse, hasData, formatPartialDataNote, seriesCoverage } from "../src/lib/chartData";
 import type { QueryResponse } from "../src/api/query";
 
 // ─── Fixture helpers ──────────────────────────────────────────────────────────
@@ -107,5 +107,24 @@ describe("hasData", () => {
 
   it("returns true when at least one value is non-null", () => {
     expect(hasData([{ ts: 1000, value: null }, { ts: 1060, value: 5.2 }])).toBe(true);
+  });
+});
+
+describe("formatPartialDataNote", () => {
+  it("returns null for dense coverage", () => {
+    const series = Array.from({ length: 100 }, (_, i) => ({
+      ts: 1000 + i * 60,
+      value: i,
+    }));
+    expect(formatPartialDataNote(seriesCoverage(series))).toBeNull();
+  });
+
+  it("returns note for sparse coverage", () => {
+    const series = Array.from({ length: 1000 }, (_, i) => ({
+      ts: 1000 + i * 60,
+      value: i < 33 ? 1 : null,
+    }));
+    const note = formatPartialDataNote(seriesCoverage(series));
+    expect(note).toMatch(/33 readings/);
   });
 });

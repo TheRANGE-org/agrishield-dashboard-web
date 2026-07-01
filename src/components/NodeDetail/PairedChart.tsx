@@ -10,10 +10,12 @@ import {
 } from "recharts";
 import type { MetricMetadata } from "../../api/types";
 import type { DataPoint } from "../../lib/chartData";
+import { partialDataNoteForSeries } from "../../lib/chartData";
 import type { TimeWindow } from "../../lib/timeWindow";
 import { formatTimeForWindow, formatTooltipTime } from "../../lib/timeWindow";
 import { referenceRangeColor, metricColor } from "../../lib/chartConfig";
 import { useContainerSize } from "../../hooks/useContainerSize";
+import PartialDataNote from "../shared/PartialDataNote";
 
 interface Props {
   /** The "avg" metric (solid line, primary). */
@@ -114,10 +116,13 @@ export default function PairedChart({
     ? `${avgMetric.label} (${avgMetric.unit})`
     : avgMetric.label;
 
+  const partialNote = partialDataNoteForSeries(avgData, peakData);
+
   return (
-    <div ref={ref} style={{ width: "100%", height: 220, minWidth: 0 }}>
-      {width > 0 && height > 0 ? (
-        <LineChart width={width} height={height} data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+    <div>
+      <div ref={ref} style={{ width: "100%", height: 220, minWidth: 0 }}>
+        {width > 0 && height > 0 ? (
+          <LineChart width={width} height={height} data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
         <XAxis
           dataKey="ts"
@@ -200,6 +205,8 @@ export default function PairedChart({
         />
         </LineChart>
       ) : null}
+      </div>
+      {partialNote && <PartialDataNote note={partialNote} />}
     </div>
   );
 }

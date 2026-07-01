@@ -68,3 +68,47 @@ export function transformQueryResponse(response: QueryResponse): MetricSeriesMap
 export function hasData(series: DataPoint[]): boolean {
   return series.some((p) => p.value !== null);
 }
+
+export interface SeriesCoverage {
+  nonNull: number;
+  total: number;
+}
+
+/** Count non-null points in a series (includes null placeholder buckets). */
+export function seriesCoverage(series: DataPoint[]): SeriesCoverage {
+  let nonNull = 0;
+  for (const p of series) {
+    if (p.value !== null) nonNull++;
+  }
+  return { nonNull, total: series.length };
+}
+
+/**
+ * Returns a short note when coverage is sparse (e.g. sensor went offline mid-window).
+ * Returns null when coverage is good enough not to warn.
+ */
+export function formatPartialDataNote(coverage: SeriesCoverage): string | null {
+  if (coverage.nonNull === 0) return null;
+  if (coverage.total === 0) return null;
+
+  const ratio = coverage.nonNull / coverage.total;
+  // Sparse: few readings vs buckets, or less than half the series populated.
+  if (coverage.nonNull < 10 || ratio < 0.5) {
+    const n = coverage.nonNull;
+    return `${n} reading${n === 1 ? "" : "s"} in this window — chart may look sparse`;
+  }
+  return null;
+}
+
+/** Best-effort coverage note from one or more series (e.g. paired charts). */
+export function partialDataNoteForSeries(
+  ...series: DataPoint[][]
+): string | null {
+  let best: SeriesCoverage | null = null;
+  for (const s of series) {
+    const cov = seriesCoverage(s);
+    if (cov.nonNull === 0) continue;
+    if (!best || cov.nonNull > best.nonNull) best = cov;
+  }
+  return best ? formatPartialDataNote(best) : null;
+}

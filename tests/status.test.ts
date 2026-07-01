@@ -5,6 +5,7 @@ import {
   batteryStatusColor,
   computeSensorHealth,
   computeConnectivityWarning,
+  decodePiThrottledState,
 } from "../src/lib/status";
 
 describe("computeStatus", () => {
@@ -61,7 +62,11 @@ describe("computeSensorHealth", () => {
       sensor_health_scd41_is_initialized: true,
       sensor_health_scd41_error_count: 0,
     };
-    expect(computeSensorHealth(values)).toEqual({ healthy: 2, total: 2 });
+    expect(computeSensorHealth(values)).toEqual({
+      healthy: 2,
+      total: 2,
+      unhealthyLabels: [],
+    });
   });
 
   it("handles unhealthy sensor", () => {
@@ -71,7 +76,11 @@ describe("computeSensorHealth", () => {
       sensor_health_scd41_is_initialized: true,
       sensor_health_scd41_error_count: 0,
     };
-    expect(computeSensorHealth(values)).toEqual({ healthy: 1, total: 2 });
+    expect(computeSensorHealth(values)).toEqual({
+      healthy: 1,
+      total: 2,
+      unhealthyLabels: ["SPS30 (3 errors)"],
+    });
   });
 
   it("ignores uninitialised sensors", () => {
@@ -81,11 +90,42 @@ describe("computeSensorHealth", () => {
       sensor_health_scd41_is_initialized: true,
       sensor_health_scd41_error_count: 0,
     };
-    expect(computeSensorHealth(values)).toEqual({ healthy: 1, total: 1 });
+    expect(computeSensorHealth(values)).toEqual({
+      healthy: 1,
+      total: 1,
+      unhealthyLabels: [],
+    });
   });
 
   it("returns 0/0 for empty values", () => {
-    expect(computeSensorHealth({})).toEqual({ healthy: 0, total: 0 });
+    expect(computeSensorHealth({})).toEqual({
+      healthy: 0,
+      total: 0,
+      unhealthyLabels: [],
+    });
+  });
+});
+
+describe("decodePiThrottledState", () => {
+  it("returns healthy for 0x0", () => {
+    const d = decodePiThrottledState("0x0");
+    expect(d.isHealthy).toBe(true);
+    expect(d.severity).toBe("none");
+  });
+
+  it("decodes 0x50000 as historical-only info severity", () => {
+    const d = decodePiThrottledState("0x50000");
+    expect(d.isHealthy).toBe(false);
+    expect(d.severity).toBe("info");
+    expect(d.currentIssues).toEqual([]);
+    expect(d.historicalIssues).toContain("Undervoltage since boot");
+    expect(d.historicalIssues).toContain("Throttled since boot");
+  });
+
+  it("treats active undervoltage as critical", () => {
+    const d = decodePiThrottledState("0x1");
+    expect(d.severity).toBe("critical");
+    expect(d.currentIssues).toContain("Undervoltage detected");
   });
 });
 

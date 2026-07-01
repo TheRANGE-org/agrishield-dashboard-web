@@ -1,4 +1,5 @@
 import { AlertTriangle, Wifi, WifiOff } from "lucide-react";
+import { decodePiThrottledState } from "../../lib/status";
 
 interface ConditionalBadgesProps {
   throttledState: string | null | undefined;
@@ -16,22 +17,27 @@ export default function ConditionalBadges({
   wifiSignalDbm,
 }: ConditionalBadgesProps) {
   const badges: React.ReactNode[] = [];
+  const throttle = decodePiThrottledState(throttledState);
 
-  // CPU throttled — only shown when non-zero
-  if (throttledState && throttledState !== "0x0") {
+  if (!throttle.isHealthy) {
+    const isCritical = throttle.severity === "critical";
     badges.push(
       <span
         key="throttle"
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 ring-1 ring-red-200"
-        title={`CPU throttled: ${throttledState}`}
+        className={[
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ring-1",
+          isCritical
+            ? "bg-red-50 text-red-700 ring-red-200"
+            : "bg-amber-50 text-amber-800 ring-amber-200",
+        ].join(" ")}
+        title={`${throttle.summary} (raw: ${throttle.raw})`}
       >
         <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
-        Throttled {throttledState}
+        {isCritical ? "Power/thermal" : "Past power/thermal"}: {throttle.shortLabel}
       </span>
     );
   }
 
-  // Pending batches — only shown when > 0
   if (typeof pendingBatches === "number" && pendingBatches > 0) {
     badges.push(
       <span
@@ -45,7 +51,6 @@ export default function ConditionalBadges({
     );
   }
 
-  // Tailscale down
   if (tailscaleDown) {
     badges.push(
       <span
@@ -59,7 +64,6 @@ export default function ConditionalBadges({
     );
   }
 
-  // Poor WiFi signal
   if (wifiPoor && !tailscaleDown) {
     const label =
       typeof wifiSignalDbm === "number" ? `${wifiSignalDbm} dBm` : "poor";

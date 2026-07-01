@@ -16,6 +16,8 @@ interface UseNodeHistoryResult {
   data: HistoryData | undefined;
   error: Error | undefined;
   isLoading: boolean;
+  /** True while SWR is fetching (including background revalidation). */
+  isValidating: boolean;
 }
 
 /**
@@ -34,7 +36,7 @@ export function useNodeHistory(
   const sortedMetrics = [...metrics].sort();
   const cacheKey = `node-history:${nodeId}:${source}:${sortedMetrics.join(",")}:${selectionCacheKey(selection)}`;
 
-  const { data, error, isLoading } = useSWR<HistoryData>(
+  const { data, error, isLoading, isValidating } = useSWR<HistoryData>(
     cacheKey,
     async () => {
       const params = selectionToQueryParams(selection);
@@ -57,5 +59,5 @@ export function useNodeHistory(
     }
   );
 
-  return { data, error, isLoading };
+  return { data, error, isLoading, isValidating };
 }

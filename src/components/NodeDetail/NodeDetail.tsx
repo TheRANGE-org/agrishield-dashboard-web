@@ -7,6 +7,7 @@ import { useNodeHistory } from "../../hooks/useNodeHistory";
 import { useTicker } from "../../hooks/useTicker";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
+import ChartLoadingOverlay from "../shared/ChartLoadingOverlay";
 import TimeWindowSelector from "./TimeWindowSelector";
 import HistoricalPeriodNav from "./HistoricalPeriodNav";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
@@ -254,6 +255,7 @@ export default function NodeDetail() {
     data: headlineHistoryData,
     error: headlineError,
     isLoading: headlineLoading,
+    isValidating: headlineValidating,
   } = useNodeHistory(
     nodeId ?? "",
     "readings",
@@ -271,6 +273,7 @@ export default function NodeDetail() {
   const {
     data: allHistoryData,
     isLoading: allLoading,
+    isValidating: allValidating,
   } = useNodeHistory(
     nodeId ?? "",
     "readings",
@@ -289,6 +292,9 @@ export default function NodeDetail() {
     chartSelection
   );
   void telemetryHistoryData; // future use
+
+  const headlineChartsBusy = headlineLoading || headlineValidating;
+  const allChartsBusy = allLoading || allValidating;
 
   // ─── Guards ────────────────────────────────────────────────────────────────
 
@@ -340,7 +346,7 @@ export default function NodeDetail() {
     const primaryMeta: MetricMetadata | undefined = cat.metrics[h.primary];
     if (!primaryMeta) return null;
 
-    const isLoading = headlineLoading && !headlineSeries;
+    const showSkeleton = headlineChartsBusy && !headlineSeries;
 
     if (h.paired) {
       const pairedMeta = cat.metrics[h.paired];
@@ -352,10 +358,13 @@ export default function NodeDetail() {
 
       return (
         <ChartCard key={idx} title={primaryMeta.label}>
-          {isLoading ? (
+          {showSkeleton ? (
             <ChartSkeleton />
           ) : !hasAnyData ? (
-            <ChartEmpty label={primaryMeta.label} />
+            <ChartEmpty
+              label={primaryMeta.label}
+              detail="Try a shorter time window if the sensor recently went offline."
+            />
           ) : (
             <PairedChart
               avgMetric={primaryMeta}
@@ -372,10 +381,13 @@ export default function NodeDetail() {
     const data = headlineSeries?.[h.primary] ?? [];
     return (
       <ChartCard key={idx} title={primaryMeta.label}>
-        {isLoading ? (
+        {showSkeleton ? (
           <ChartSkeleton />
         ) : !hasData(data) ? (
-          <ChartEmpty label={primaryMeta.label} />
+          <ChartEmpty
+            label={primaryMeta.label}
+            detail="Try a shorter time window if the sensor recently went offline."
+          />
         ) : (
           <MetricChart metric={primaryMeta} data={data} window={axisWindow} />
         )}
@@ -403,16 +415,21 @@ export default function NodeDetail() {
     const pairMeta = pairName ? cat.metrics[pairName] : null;
     const pairInSet = pairName && allReadingNames.includes(pairName);
 
+    const showAllSkeleton = allChartsBusy && !allSeries;
+
     if (pairMeta && pairInSet) {
       const pairData = allSeries?.[pairName!] ?? [];
       const hasAnyData = hasData(data) || hasData(pairData);
 
       return (
         <ChartCard key={idx} title={meta.label}>
-          {allLoading && !allSeries ? (
+          {showAllSkeleton ? (
             <ChartSkeleton />
           ) : !hasAnyData ? (
-            <ChartEmpty label={meta.label} />
+            <ChartEmpty
+              label={meta.label}
+              detail="Try a shorter time window if the sensor recently went offline."
+            />
           ) : (
             <PairedChart
               avgMetric={meta}
@@ -428,10 +445,13 @@ export default function NodeDetail() {
 
     return (
       <ChartCard key={idx} title={meta.label}>
-        {allLoading && !allSeries ? (
+        {showAllSkeleton ? (
           <ChartSkeleton />
         ) : !hasData(data) ? (
-          <ChartEmpty label={meta.label} />
+          <ChartEmpty
+            label={meta.label}
+            detail="Try a shorter time window if the sensor recently went offline."
+          />
         ) : (
           <MetricChart metric={meta} data={data} window={axisWindow} />
         )}
@@ -472,7 +492,8 @@ export default function NodeDetail() {
       <LatestStrip node={node} nowMs={nowMs} catalog={catalog} />
 
       {/* ── Headline charts ───────────────────────────────────────────────── */}
-      <section aria-label="Headline metrics">
+      <section aria-label="Headline metrics" className="relative">
+        <ChartLoadingOverlay active={headlineChartsBusy} />
         <h2 className="text-sm font-medium text-slate-600 mb-3 uppercase tracking-wide text-xs">
           Key metrics
         </h2>
@@ -504,8 +525,11 @@ export default function NodeDetail() {
         </button>
 
         {showAll && (
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+          <div className="relative mt-4">
+            <ChartLoadingOverlay active={allChartsBusy} />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
             {allReadingNames.map((name, i) => renderAllChart(name, i))}
+            </div>
           </div>
         )}
       </section>

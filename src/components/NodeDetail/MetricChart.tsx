@@ -9,10 +9,12 @@ import {
 } from "recharts";
 import type { MetricMetadata } from "../../api/types";
 import type { DataPoint } from "../../lib/chartData";
+import { formatPartialDataNote, seriesCoverage } from "../../lib/chartData";
 import type { TimeWindow } from "../../lib/timeWindow";
 import { formatTimeForWindow, formatTooltipTime } from "../../lib/timeWindow";
 import { referenceRangeColor, metricColor } from "../../lib/chartConfig";
 import { useContainerSize } from "../../hooks/useContainerSize";
+import PartialDataNote from "../shared/PartialDataNote";
 
 interface Props {
   metric: MetricMetadata;
@@ -74,13 +76,20 @@ function ChartSkeleton() {
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
-function ChartEmpty({ label }: { label: string }) {
+function ChartEmpty({
+  label,
+  detail,
+}: {
+  label: string;
+  detail?: string;
+}) {
   return (
     <div
-      className="w-full flex items-center justify-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-400"
+      className="w-full flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-200 text-sm text-slate-400 px-4 text-center"
       style={{ aspectRatio: "2 / 1" }}
     >
-      No {label} data in this window
+      <span>No {label} data in this window</span>
+      {detail && <span className="text-xs text-slate-400">{detail}</span>}
     </div>
   );
 }
@@ -91,9 +100,24 @@ export { ChartSkeleton, ChartEmpty };
 
 export default function MetricChart({ metric, data, window }: Props) {
   const { ref, width, height } = useContainerSize();
+  const partialNote = formatPartialDataNote(seriesCoverage(data));
 
   if (data.length === 0) {
-    return <ChartEmpty label={metric.label} />;
+    return (
+      <ChartEmpty
+        label={metric.label}
+        detail="The API returned no rows for this metric and time range."
+      />
+    );
+  }
+
+  if (!data.some((p) => p.value !== null)) {
+    return (
+      <ChartEmpty
+        label={metric.label}
+        detail="Rows were returned but all values are null — the sensor may not have reported in this window."
+      />
+    );
   }
 
   const color = metricColor(metric.name);
@@ -109,9 +133,10 @@ export default function MetricChart({ metric, data, window }: Props) {
     : metric.label;
 
   return (
-    <div ref={ref} style={{ width: "100%", height: 220, minWidth: 0 }}>
-      {width > 0 && height > 0 ? (
-        <LineChart width={width} height={height} data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+    <div>
+      <div ref={ref} style={{ width: "100%", height: 220, minWidth: 0 }}>
+        {width > 0 && height > 0 ? (
+          <LineChart width={width} height={height} data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
         <XAxis
           dataKey="ts"
@@ -174,6 +199,8 @@ export default function MetricChart({ metric, data, window }: Props) {
         />
         </LineChart>
       ) : null}
+      </div>
+      {partialNote && <PartialDataNote note={partialNote} />}
     </div>
   );
 }
