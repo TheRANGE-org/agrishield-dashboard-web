@@ -169,9 +169,24 @@ describe("computeSensorHealth", () => {
     const sps30 = result.details.find((d) => d.label === "SPS30");
     expect(sps30?.lastOkAgeSec).toBe(120);
     expect(sps30?.autoReinitCount).toBe(4);
-    expect(sps30?.detail).toContain("last OK read 2m ago");
-    expect(sps30?.detail).toContain("4 auto re-inits");
+    expect(sps30?.detail).toContain("operating normally");
     expect(result.overallSeverity).toBe("degraded");
+  });
+
+  it("defaults SPS30 auto re-init count to zero when missing from telemetry", () => {
+    const nowSec = 1_800_000_000;
+    const result = computeSensorHealth(
+      {
+        ...baseValues,
+        sensor_health_sps30_last_ok_ts: nowSec - 120,
+      },
+      {
+        readingValues: { sps30_pm2_5: 4.5, scd41_co2_ppm: 420 },
+        nowSec,
+      }
+    );
+    const sps30 = result.details.find((d) => d.label === "SPS30");
+    expect(sps30?.autoReinitCount).toBe(0);
   });
 });
 

@@ -1,3 +1,5 @@
+import { formatAgeSecondsAgo } from "./format";
+
 export type NodeStatus = "live" | "stale" | "dead";
 
 /**
@@ -107,13 +109,6 @@ function severityRank(s: SensorHealthSeverity): number {
   return 0;
 }
 
-function formatLastOkAge(seconds: number): string {
-  if (seconds < 60) return `${seconds}s ago`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
-
 function formatErrorDetail(label: string, errorCount: number, isStale: boolean): string {
   const errPhrase =
     errorCount === 1
@@ -165,8 +160,10 @@ export function computeSensorHealth(
     const lastOkAgeSec =
       lastOkTs != null ? Math.max(0, nowSec - lastOkTs) : null;
     const autoReinitCount =
-      "autoReinit" in sensor && typeof values[sensor.autoReinit] === "number"
-        ? (values[sensor.autoReinit] as number)
+      "autoReinit" in sensor
+        ? typeof values[sensor.autoReinit] === "number"
+          ? (values[sensor.autoReinit] as number)
+          : 0
         : null;
     const isLastOkStale =
       lastOkAgeSec != null && lastOkAgeSec > LAST_OK_STALE_SEC;
@@ -195,25 +192,15 @@ export function computeSensorHealth(
     if (isStale) {
       detailParts.push(
         isLastOkStale && !staleSensors.has(sensor.label)
-          ? `no successful read for ${formatLastOkAge(lastOkAgeSec!)}`
+          ? `no successful read for ${formatAgeSecondsAgo(lastOkAgeSec!)}`
           : "reading unchanged for 3+ minutes"
       );
-    }
-    if (lastOkAgeSec != null && !isStale) {
-      detailParts.push(`last OK read ${formatLastOkAge(lastOkAgeSec)}`);
     }
     if (errorCount > 0) {
       detailParts.push(
         errorCount === 1
           ? "1 read error since last successful sample"
           : `${errorCount.toLocaleString()} read errors since last successful sample`
-      );
-    }
-    if (autoReinitCount != null && autoReinitCount > 0) {
-      detailParts.push(
-        autoReinitCount === 1
-          ? "1 auto re-init since service start"
-          : `${autoReinitCount.toLocaleString()} auto re-inits since service start`
       );
     }
     if (detailParts.length === 0) detailParts.push("operating normally");

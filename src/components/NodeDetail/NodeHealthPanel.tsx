@@ -10,7 +10,7 @@ import {
   getNodeContactInfo,
   nodeSetupUrl,
 } from "../../lib/nodeContact";
-import { formatSecondsSince } from "../../lib/format";
+import { formatAgeSecondsAgo, formatSecondsSince } from "../../lib/format";
 import TelemetryPanel from "./TelemetryPanel";
 
 interface NodeHealthPanelProps {
@@ -29,6 +29,8 @@ const SEVERITY_BADGE: Record<SensorHealthSeverity, string> = {
 };
 
 function SensorStatusRow({ detail }: { detail: SensorHealthDetail }) {
+  const showAutoReinit = detail.autoReinitCount != null;
+
   return (
     <div
       className={[
@@ -38,26 +40,18 @@ function SensorStatusRow({ detail }: { detail: SensorHealthDetail }) {
     >
       <div className="font-semibold">{detail.label}</div>
       <div className="mt-0.5 opacity-90">{detail.detail}</div>
-      {(detail.lastOkAgeSec != null || detail.autoReinitCount != null) && (
+      {(detail.lastOkAgeSec != null || showAutoReinit) && (
         <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] tabular-nums opacity-90">
           {detail.lastOkAgeSec != null && (
             <>
               <dt className="text-inherit/70">Last OK read</dt>
-              <dd>
-                {detail.lastOkAgeSec < 60
-                  ? `${detail.lastOkAgeSec}s ago`
-                  : detail.lastOkAgeSec < 3600
-                    ? `${Math.floor(detail.lastOkAgeSec / 60)}m ago`
-                    : detail.lastOkAgeSec < 86400
-                      ? `${Math.floor(detail.lastOkAgeSec / 3600)}h ago`
-                      : `${Math.floor(detail.lastOkAgeSec / 86400)}d ago`}
-              </dd>
+              <dd>{formatAgeSecondsAgo(detail.lastOkAgeSec)}</dd>
             </>
           )}
-          {detail.autoReinitCount != null && detail.autoReinitCount > 0 && (
+          {showAutoReinit && (
             <>
               <dt className="text-inherit/70">Auto re-inits</dt>
-              <dd>{detail.autoReinitCount.toLocaleString()}</dd>
+              <dd>{detail.autoReinitCount!.toLocaleString()}</dd>
             </>
           )}
         </dl>
