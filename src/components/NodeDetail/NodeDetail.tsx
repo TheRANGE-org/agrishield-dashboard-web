@@ -44,6 +44,9 @@ const HEADLINE_METRICS: { primary: string; paired?: string }[] = [
   },
 ];
 
+/** Envelope diagnostics shown on the node health panel instead of "Show all". */
+const HEALTH_PANEL_READING_CHARTS = ["sample_count", "byte_count"] as const;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -55,6 +58,7 @@ function getAllReadingMetricNames(catalog: Catalog): string[] {
   const headlineSet = new Set(
     HEADLINE_METRICS.flatMap((h) => (h.paired ? [h.primary, h.paired] : [h.primary]))
   );
+  const healthPanelSet = new Set<string>(HEALTH_PANEL_READING_CHARTS);
   const windVaneNames = new Set([
     "wind_vane_degrees",
     "wind_vane_degrees_avg",
@@ -67,6 +71,7 @@ function getAllReadingMetricNames(catalog: Catalog): string[] {
         m.source === "readings" &&
         m.type === "numeric" &&
         !headlineSet.has(m.name) &&
+        !healthPanelSet.has(m.name) &&
         !windVaneNames.has(m.name)
     )
     .map((m) => m.name);
@@ -285,6 +290,17 @@ export default function NodeDetail() {
     chartSelection
   );
 
+  const {
+    data: healthPanelHistoryData,
+    isLoading: healthPanelLoading,
+    isValidating: healthPanelValidating,
+  } = useNodeHistory(
+    nodeId ?? "",
+    "readings",
+    [...HEALTH_PANEL_READING_CHARTS],
+    chartSelection
+  );
+
   // ── Telemetry query (for TelemetryPanel) ──────────────────────────────────
 
   const {
@@ -299,6 +315,7 @@ export default function NodeDetail() {
 
   const headlineChartsBusy = headlineLoading || headlineValidating;
   const allChartsBusy = allLoading || allValidating;
+  const healthPanelChartsBusy = healthPanelLoading || healthPanelValidating;
 
   // ─── Guards ────────────────────────────────────────────────────────────────
 
@@ -339,6 +356,10 @@ export default function NodeDetail() {
 
   const allSeries = allHistoryData
     ? transformQueryResponse(allHistoryData.response)
+    : null;
+
+  const healthPanelSeries = healthPanelHistoryData
+    ? transformQueryResponse(healthPanelHistoryData.response)
     : null;
 
   // ── Chart rendering helpers ───────────────────────────────────────────────
@@ -546,6 +567,10 @@ export default function NodeDetail() {
         staleSensors={staleByNode.get(node.nodeId)}
         onRefresh={refresh}
         isRefreshing={isRefreshing}
+        healthPanelSeries={healthPanelSeries}
+        healthPanelChartMetrics={[...HEALTH_PANEL_READING_CHARTS]}
+        chartWindow={axisWindow}
+        healthChartsBusy={healthPanelChartsBusy}
       />
     </div>
   );

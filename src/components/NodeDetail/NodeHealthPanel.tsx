@@ -11,6 +11,10 @@ import {
   nodeSetupUrl,
 } from "../../lib/nodeContact";
 import { formatAgeSecondsAgo, formatSecondsSince } from "../../lib/format";
+import type { MetricSeriesMap } from "../../lib/chartData";
+import { hasData } from "../../lib/chartData";
+import type { TimeWindow } from "../../lib/timeWindow";
+import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
 import TelemetryPanel from "./TelemetryPanel";
 
 interface NodeHealthPanelProps {
@@ -20,6 +24,10 @@ interface NodeHealthPanelProps {
   staleSensors?: Set<string>;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  healthPanelSeries?: MetricSeriesMap | null;
+  healthPanelChartMetrics?: string[];
+  chartWindow?: TimeWindow;
+  healthChartsBusy?: boolean;
 }
 
 const SEVERITY_BADGE: Record<SensorHealthSeverity, string> = {
@@ -67,6 +75,10 @@ export default function NodeHealthPanel({
   staleSensors,
   onRefresh,
   isRefreshing = false,
+  healthPanelSeries = null,
+  healthPanelChartMetrics = [],
+  chartWindow = "24h",
+  healthChartsBusy = false,
 }: NodeHealthPanelProps) {
   const nowSec = Math.floor(nowMs / 1000);
   const contact = getNodeContactInfo(node, nowSec);
@@ -185,6 +197,51 @@ export default function NodeHealthPanel({
         Pi. The refresh button above reloads data already ingested into the
         dashboard.
       </p>
+
+      {healthPanelChartMetrics.length > 0 && (
+        <div className="mb-4">
+          <h3 className="text-xs font-semibold text-slate-600 mb-2">
+            Readings pipeline
+          </h3>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [&>*]:min-w-0">
+            {healthPanelChartMetrics.map((metricName) => {
+              const meta = catalog.metrics[metricName];
+              if (!meta) return null;
+              const data = healthPanelSeries?.[metricName] ?? [];
+              const showSkeleton = healthChartsBusy && !healthPanelSeries;
+
+              return (
+                <div
+                  key={metricName}
+                  className="rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden"
+                >
+                  <div className="px-3 pt-2 pb-1">
+                    <h4 className="text-xs font-medium text-slate-700">
+                      {meta.label}
+                    </h4>
+                  </div>
+                  <div className="px-1 pb-2">
+                    {showSkeleton ? (
+                      <ChartSkeleton />
+                    ) : !hasData(data) ? (
+                      <ChartEmpty
+                        label={meta.label}
+                        detail="No readings in the selected time window."
+                      />
+                    ) : (
+                      <MetricChart
+                        metric={meta}
+                        data={data}
+                        window={chartWindow}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <h3 className="text-xs font-semibold text-slate-600 mb-2">
         Full telemetry

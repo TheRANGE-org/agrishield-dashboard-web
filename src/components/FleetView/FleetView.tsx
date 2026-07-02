@@ -184,7 +184,7 @@ export default function FleetView() {
       {catalog ? (
         visibleNodes.length > 0 ? (
           <div
-            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 items-start"
             aria-label="Sensor nodes"
           >
             {visibleNodes.map((node) => (

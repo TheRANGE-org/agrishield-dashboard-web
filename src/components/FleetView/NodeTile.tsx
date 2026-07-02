@@ -108,7 +108,7 @@ export default function NodeTile({
     <Link
       to={`/nodes/${node.nodeId}`}
       className={[
-        "block rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md hover:ring-2 hover:ring-green-400/50 focus-visible:outline-2 focus-visible:outline-green-600",
+        "block self-start w-full rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md hover:ring-2 hover:ring-green-400/50 focus-visible:outline-2 focus-visible:outline-green-600",
         borderClass,
       ].join(" ")}
       aria-label={`Node ${node.nodeId} — view details`}
