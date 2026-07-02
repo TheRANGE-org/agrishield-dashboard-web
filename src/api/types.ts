@@ -45,8 +45,10 @@ export interface FleetNode {
   seconds_since_contact: number;
   registration: {
     version?: string;
-    uptime_seconds: number;
+    uptime_seconds?: number;
     status?: string;
+    hostname?: string;
+    deployment_id?: string;
   } | null;
   latest_reading: {
     ts: number;

@@ -10,6 +10,7 @@ import {
   computeConnectivityWarning,
   decodePiThrottledState,
 } from "../../lib/status";
+import { isSensorLabelStale } from "../../lib/staleReadings";
 import { formatCoordinates, formatSecondsSince, formatUptime } from "../../lib/format";
 import StatusBadge from "./StatusBadge";
 import BatteryIndicator from "./BatteryIndicator";
@@ -21,6 +22,7 @@ interface NodeTileProps {
   nowMs: number; // from useTicker
   catalog: Catalog;
   onShowOnMap?: (node: FleetNode) => void;
+  staleByNode?: Map<string, Set<string>>;
 }
 
 const STATUS_BG: Record<string, string> = {
@@ -34,6 +36,7 @@ export default function NodeTile({
   nowMs,
   catalog: _catalog, // eslint-disable-line @typescript-eslint/no-unused-vars
   onShowOnMap,
+  staleByNode,
 }: NodeTileProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -54,6 +57,8 @@ export default function NodeTile({
 
   const telemetryValues = node.latest_telemetry?.values ?? {};
   const readingValues = node.latest_reading?.values ?? {};
+  const nowSec = Math.floor(nowMs / 1000);
+  const nodeStale = staleByNode?.get(node.nodeId);
 
   // Battery
   const batteryStatusRaw = telemetryValues["sensor_health_battery_status"];
@@ -64,7 +69,12 @@ export default function NodeTile({
   const batteryPercentage = typeof batteryPct === "number" ? batteryPct : null;
 
   // Sensor health
-  const sensorHealth = computeSensorHealth(telemetryValues);
+  const sensorHealth = computeSensorHealth(telemetryValues, {
+    staleSensors: nodeStale,
+    telemetryTs: node.latest_telemetry?.ts,
+    nowSec,
+    readingValues,
+  });
 
   // Connectivity warnings
   const connectivity = computeConnectivityWarning(telemetryValues);
@@ -167,9 +177,9 @@ export default function NodeTile({
           </span>
         </span>
         <SensorHealthPill
-          healthy={sensorHealth.healthy}
-          total={sensorHealth.total}
-          unhealthyLabels={sensorHealth.unhealthyLabels}
+          health={sensorHealth}
+          nodeId={node.nodeId}
+          nowMs={nowMs}
         />
       </div>
 
@@ -186,10 +196,14 @@ export default function NodeTile({
         <ReadingRow
           label="PM 2.5"
           value={typeof pm25 === "number" ? `${pm25.toFixed(2)} µg/m³` : "—"}
+          stale={isSensorLabelStale(staleByNode, node.nodeId, "SPS30")}
+          staleLabel="SPS30 (stale)"
         />
         <ReadingRow
           label="CO₂"
           value={typeof co2 === "number" ? `${Math.round(co2)} ppm` : "—"}
+          stale={isSensorLabelStale(staleByNode, node.nodeId, "SCD41")}
+          staleLabel="SCD41 (stale)"
         />
       </div>
 
@@ -306,11 +320,30 @@ export default function NodeTile({
 
 // ─── Mini sub-components ──────────────────────────────────────────────────────
 
-function ReadingRow({ label, value }: { label: string; value: string }) {
+function ReadingRow({
+  label,
+  value,
+  stale = false,
+  staleLabel,
+}: {
+  label: string;
+  value: string;
+  stale?: boolean;
+  staleLabel?: string;
+}) {
   return (
     <div>
-      <span className="text-xs text-slate-400 block leading-none">{label}</span>
-      <span className="text-sm font-medium text-slate-800 tabular-nums">{value}</span>
+      <span className="text-xs text-slate-400 block leading-none">
+        {stale ? (staleLabel ?? `${label} (stale)`) : label}
+      </span>
+      <span
+        className={[
+          "text-sm font-medium tabular-nums",
+          stale ? "text-amber-700" : "text-slate-800",
+        ].join(" ")}
+      >
+        {value}
+      </span>
     </div>
   );
 }

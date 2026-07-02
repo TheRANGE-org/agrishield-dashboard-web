@@ -12,8 +12,10 @@ import TimeWindowSelector from "./TimeWindowSelector";
 import HistoricalPeriodNav from "./HistoricalPeriodNav";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
 import PairedChart from "./PairedChart";
-import TelemetryPanel from "./TelemetryPanel";
+import NodeHealthPanel from "./NodeHealthPanel";
 import type { ChartTimeSelection, TimeWindow } from "../../lib/timeWindow";
+import { useFleetStaleMetrics } from "../../hooks/useFleetStaleMetrics";
+import { useRefreshNodeData } from "../../hooks/useRefreshNodeData";
 import { chartAxisWindow } from "../../lib/timeWindow";
 import { transformQueryResponse, hasData } from "../../lib/chartData";
 import type { FleetNode, Catalog, MetricMetadata } from "../../api/types";
@@ -242,6 +244,8 @@ export default function NodeDetail() {
   const { fleet, isLoading: fleetLoading, error: fleetError } = useFleet();
   const { catalog, isLoading: catalogLoading } = useMetadata();
   const nowMs = useTicker(1000);
+  const { staleByNode } = useFleetStaleMetrics(nodeId ? [nodeId] : []);
+  const { refresh, isRefreshing } = useRefreshNodeData(nodeId ?? "");
 
   // ── Headline metrics query ────────────────────────────────────────────────
 
@@ -534,20 +538,15 @@ export default function NodeDetail() {
         )}
       </section>
 
-      {/* ── Full telemetry panel ──────────────────────────────────────────── */}
-      <section
-        aria-label="Full telemetry"
-        className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-4"
-      >
-        <h2 className="text-sm font-semibold text-slate-700 mb-3">
-          Full telemetry
-        </h2>
-        <TelemetryPanel
-          catalog={cat}
-          values={node.latest_telemetry?.values ?? {}}
-          source="telemetry"
-        />
-      </section>
+      {/* ── Node health & telemetry ───────────────────────────────────────── */}
+      <NodeHealthPanel
+        node={node}
+        catalog={cat}
+        nowMs={nowMs}
+        staleSensors={staleByNode.get(node.nodeId)}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+      />
     </div>
   );
 }

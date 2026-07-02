@@ -43,11 +43,27 @@ export function batteryStatusColor(status: BatteryStatus): string {
 
 // ─── Sensor health ────────────────────────────────────────────────────────────
 
+export type SensorHealthSeverity = "healthy" | "degraded" | "unhealthy";
+
+export interface SensorHealthDetail {
+  label: string;
+  severity: SensorHealthSeverity;
+  /** Short label for fleet pill, e.g. "SPS30 (stale)". */
+  pillLabel: string;
+  /** Longer explanation for tooltips / node detail. */
+  detail: string;
+  errorCount: number;
+  isStale: boolean;
+}
+
 export interface SensorHealthResult {
   healthy: number;
   total: number;
-  /** Human-readable labels for initialized sensors that are unhealthy. */
+  overallSeverity: SensorHealthSeverity;
+  details: SensorHealthDetail[];
+  /** Short combined labels for compact fleet display. */
   unhealthyLabels: string[];
+  telemetryAgeSeconds: number | null;
 }
 
 const MONITORED_SENSORS = [
@@ -55,42 +71,130 @@ const MONITORED_SENSORS = [
     label: "SPS30",
     init: "sensor_health_sps30_is_initialized",
     errors: "sensor_health_sps30_error_count",
+    readingMetrics: ["sps30_pm2_5"],
   },
   {
     label: "SCD41",
     init: "sensor_health_scd41_is_initialized",
     errors: "sensor_health_scd41_error_count",
+    readingMetrics: ["scd41_co2_ppm"],
   },
 ] as const;
 
+export interface ComputeSensorHealthOptions {
+  /** Sensor type labels with flat-line readings (e.g. "SPS30"). */
+  staleSensors?: Set<string>;
+  /** Unix seconds of latest telemetry envelope. */
+  telemetryTs?: number | null;
+  /** Current time in unix seconds (for telemetry age). */
+  nowSec?: number;
+  readingValues?: Record<string, number | string | boolean | null>;
+}
+
+function severityRank(s: SensorHealthSeverity): number {
+  if (s === "unhealthy") return 2;
+  if (s === "degraded") return 1;
+  return 0;
+}
+
+function formatErrorDetail(label: string, errorCount: number, isStale: boolean): string {
+  const errPhrase =
+    errorCount === 1
+      ? "1 error since last OK read"
+      : `${errorCount.toLocaleString()} errors since last OK read`;
+  if (isStale && errorCount > 0) return `${label} (stale, ${errPhrase})`;
+  if (isStale) return `${label} (stale)`;
+  if (errorCount > 0) return `${label} (${errPhrase})`;
+  return label;
+}
+
 /**
- * Computes "X/Y healthy" from telemetry values.
- * A sensor is counted as initialized if its is_initialized flag is true.
- * It's "healthy" if initialized AND error_count === 0.
+ * Computes per-sensor health from telemetry plus optional stale-reading hints.
+ *
+ * - **healthy** — initialized, no errors, reading not stale
+ * - **degraded** — errors since last OK read but reading still changing, or minor fault
+ * - **unhealthy** — stale reading and/or persistent errors with flat data
  */
 export function computeSensorHealth(
-  values: Record<string, number | string | boolean | null>
+  values: Record<string, number | string | boolean | null>,
+  options: ComputeSensorHealthOptions = {}
 ): SensorHealthResult {
+  const staleSensors = options.staleSensors ?? new Set<string>();
+  const nowSec = options.nowSec ?? Math.floor(Date.now() / 1000);
+  const telemetryAgeSeconds =
+    options.telemetryTs != null && options.telemetryTs > 0
+      ? Math.max(0, nowSec - options.telemetryTs)
+      : null;
+
   let healthy = 0;
   let total = 0;
+  let overallSeverity: SensorHealthSeverity = "healthy";
+  const details: SensorHealthDetail[] = [];
   const unhealthyLabels: string[] = [];
 
   for (const sensor of MONITORED_SENSORS) {
     const initialized = values[sensor.init];
-    if (initialized === true) {
-      total++;
-      const errorCount = values[sensor.errors];
-      if (typeof errorCount === "number" && errorCount === 0) {
-        healthy++;
-      } else {
-        const err =
-          typeof errorCount === "number" ? ` (${errorCount} errors)` : "";
-        unhealthyLabels.push(`${sensor.label}${err}`);
-      }
+    if (initialized !== true) continue;
+
+    total++;
+    const errorCount =
+      typeof values[sensor.errors] === "number"
+        ? (values[sensor.errors] as number)
+        : 0;
+    const isStale = staleSensors.has(sensor.label);
+
+    const hasReading = sensor.readingMetrics.some((m) => {
+      const v = options.readingValues?.[m];
+      return typeof v === "number";
+    });
+
+    let severity: SensorHealthSeverity = "healthy";
+    if (isStale || (errorCount > 0 && !hasReading)) {
+      severity = "unhealthy";
+    } else if (errorCount > 0) {
+      severity = "degraded";
+    }
+
+    if (severity === "healthy") {
+      healthy++;
+    } else {
+      const pillLabel = formatErrorDetail(sensor.label, errorCount, isStale);
+      unhealthyLabels.push(pillLabel);
+    }
+
+    const detailParts: string[] = [];
+    if (isStale) detailParts.push("reading unchanged for 3+ minutes");
+    if (errorCount > 0) {
+      detailParts.push(
+        errorCount === 1
+          ? "1 read error since last successful sample"
+          : `${errorCount.toLocaleString()} read errors since last successful sample`
+      );
+    }
+    if (detailParts.length === 0) detailParts.push("operating normally");
+
+    details.push({
+      label: sensor.label,
+      severity,
+      pillLabel: formatErrorDetail(sensor.label, errorCount, isStale),
+      detail: detailParts.join("; "),
+      errorCount,
+      isStale,
+    });
+
+    if (severityRank(severity) > severityRank(overallSeverity)) {
+      overallSeverity = severity;
     }
   }
 
-  return { healthy, total, unhealthyLabels };
+  return {
+    healthy,
+    total,
+    overallSeverity,
+    details,
+    unhealthyLabels,
+    telemetryAgeSeconds,
+  };
 }
 
 // ─── Pi throttling (vcgencmd get_throttled) ───────────────────────────────────

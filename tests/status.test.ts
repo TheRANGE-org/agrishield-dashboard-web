@@ -55,54 +55,81 @@ describe("batteryStatusColor", () => {
 });
 
 describe("computeSensorHealth", () => {
+  const baseValues = {
+    sensor_health_sps30_is_initialized: true,
+    sensor_health_sps30_error_count: 0,
+    sensor_health_scd41_is_initialized: true,
+    sensor_health_scd41_error_count: 0,
+  };
+
   it("counts healthy sensors correctly", () => {
-    const values = {
-      sensor_health_sps30_is_initialized: true,
-      sensor_health_sps30_error_count: 0,
-      sensor_health_scd41_is_initialized: true,
-      sensor_health_scd41_error_count: 0,
-    };
-    expect(computeSensorHealth(values)).toEqual({
-      healthy: 2,
-      total: 2,
-      unhealthyLabels: [],
+    const result = computeSensorHealth(baseValues, {
+      readingValues: { sps30_pm2_5: 4.5, scd41_co2_ppm: 420 },
+      telemetryTs: 1000,
+      nowSec: 1100,
     });
+    expect(result.healthy).toBe(2);
+    expect(result.total).toBe(2);
+    expect(result.overallSeverity).toBe("healthy");
+    expect(result.unhealthyLabels).toEqual([]);
+    expect(result.telemetryAgeSeconds).toBe(100);
   });
 
-  it("handles unhealthy sensor", () => {
-    const values = {
-      sensor_health_sps30_is_initialized: true,
-      sensor_health_sps30_error_count: 3,
-      sensor_health_scd41_is_initialized: true,
-      sensor_health_scd41_error_count: 0,
-    };
-    expect(computeSensorHealth(values)).toEqual({
-      healthy: 1,
-      total: 2,
-      unhealthyLabels: ["SPS30 (3 errors)"],
+  it("marks degraded when errors exist but reading is fresh", () => {
+    const result = computeSensorHealth(
+      {
+        ...baseValues,
+        sensor_health_sps30_error_count: 3,
+      },
+      {
+        readingValues: { sps30_pm2_5: 4.5, scd41_co2_ppm: 420 },
+      }
+    );
+    expect(result.healthy).toBe(1);
+    expect(result.overallSeverity).toBe("degraded");
+    expect(result.unhealthyLabels).toContain(
+      "SPS30 (3 errors since last OK read)"
+    );
+  });
+
+  it("marks unhealthy when sensor reading is stale", () => {
+    const result = computeSensorHealth(baseValues, {
+      staleSensors: new Set(["SPS30"]),
+      readingValues: { sps30_pm2_5: 4.5, scd41_co2_ppm: 420 },
     });
+    expect(result.overallSeverity).toBe("unhealthy");
+    expect(result.unhealthyLabels).toContain("SPS30 (stale)");
+  });
+
+  it("marks unhealthy when stale and errors combine", () => {
+    const result = computeSensorHealth(
+      {
+        ...baseValues,
+        sensor_health_sps30_error_count: 10094,
+      },
+      {
+        staleSensors: new Set(["SPS30"]),
+        readingValues: { sps30_pm2_5: 4.65 },
+      }
+    );
+    expect(result.unhealthyLabels[0]).toContain("stale");
+    expect(result.unhealthyLabels[0]).toContain("10,094 errors");
   });
 
   it("ignores uninitialised sensors", () => {
-    const values = {
+    const result = computeSensorHealth({
+      ...baseValues,
       sensor_health_sps30_is_initialized: false,
-      sensor_health_sps30_error_count: 0,
-      sensor_health_scd41_is_initialized: true,
-      sensor_health_scd41_error_count: 0,
-    };
-    expect(computeSensorHealth(values)).toEqual({
-      healthy: 1,
-      total: 1,
-      unhealthyLabels: [],
     });
+    expect(result.healthy).toBe(1);
+    expect(result.total).toBe(1);
   });
 
   it("returns 0/0 for empty values", () => {
-    expect(computeSensorHealth({})).toEqual({
-      healthy: 0,
-      total: 0,
-      unhealthyLabels: [],
-    });
+    const result = computeSensorHealth({});
+    expect(result.healthy).toBe(0);
+    expect(result.total).toBe(0);
+    expect(result.overallSeverity).toBe("healthy");
   });
 });
 

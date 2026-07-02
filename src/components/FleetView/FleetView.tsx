@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Maximize2, Minimize2, RefreshCw } from "lucide-react";
 import { useFleet } from "../../hooks/useFleet";
+import { useFleetStaleMetrics } from "../../hooks/useFleetStaleMetrics";
 import { useMetadata } from "../../hooks/useMetadata";
 import { useTicker } from "../../hooks/useTicker";
 import type { FleetNode } from "../../api/types";
@@ -29,6 +30,12 @@ export default function FleetView() {
     () => filterNodesBySite(fleet?.nodes ?? [], selectedSite),
     [fleet?.nodes, selectedSite]
   );
+
+  const visibleNodeIds = useMemo(
+    () => visibleNodes.map((n) => n.nodeId),
+    [visibleNodes]
+  );
+  const { staleByNode } = useFleetStaleMetrics(visibleNodeIds);
 
   const mapRefitKey = useMemo(
     () =>
@@ -187,6 +194,7 @@ export default function FleetView() {
                 nowMs={nowMs}
                 catalog={catalog}
                 onShowOnMap={handleShowOnMap}
+                staleByNode={staleByNode}
               />
             ))}
           </div>
