@@ -139,7 +139,7 @@ export default function NodeHealthPanel({
           <div>
             <dt className="text-slate-400">Telemetry snapshot</dt>
             <dd className="font-medium text-slate-800 mt-0.5 tabular-nums">
-              {formatSecondsSince(nowMs, node.latest_telemetry.ts)} ago
+              {formatSecondsSince(nowMs, node.latest_telemetry.ts)}
             </dd>
             <dd className="text-slate-500">
               Health metrics update every ~15 min on the node
