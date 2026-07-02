@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ExternalLink, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import type { FleetNode, Catalog } from "../../api/types";
 import {
@@ -95,23 +96,35 @@ export default function NodeHealthPanel({
   });
 
   const setupUrl = nodeSetupUrl(node);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
 
-  const [expanded, setExpanded] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.location.hash === "#sensor-health"
-  );
+  // Collapse when opening or switching nodes; expand once for fleet deep-links.
+  useEffect(() => {
+    if (window.location.hash === "#sensor-health") {
+      setExpanded(true);
+      navigate(
+        { pathname: location.pathname, search: location.search },
+        { replace: true }
+      );
+    } else {
+      setExpanded(false);
+    }
+  }, [node.nodeId, navigate, location.pathname, location.search]);
 
   useEffect(() => {
     const openFromHash = () => {
-      if (window.location.hash === "#sensor-health") {
-        setExpanded(true);
-      }
+      if (window.location.hash !== "#sensor-health") return;
+      setExpanded(true);
+      navigate(
+        { pathname: location.pathname, search: location.search },
+        { replace: true }
+      );
     };
-    openFromHash();
     window.addEventListener("hashchange", openFromHash);
     return () => window.removeEventListener("hashchange", openFromHash);
-  }, []);
+  }, [navigate, location.pathname, location.search]);
 
   const diskPct = telemetryValues["system_health_disk_usage_percent"];
   const collapsedSummaryParts: string[] = [];
