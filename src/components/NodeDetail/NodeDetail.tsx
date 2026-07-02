@@ -47,6 +47,11 @@ const HEADLINE_METRICS: { primary: string; paired?: string }[] = [
 /** Envelope diagnostics shown on the node health panel instead of "Show all". */
 const HEALTH_PANEL_READING_CHARTS = ["sample_count", "byte_count"] as const;
 
+/** Telemetry metrics charted on the node health panel (upload queue, etc.). */
+const HEALTH_PANEL_TELEMETRY_CHARTS = [
+  "system_health_queue_pending_batches",
+] as const;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -301,21 +306,24 @@ export default function NodeDetail() {
     chartSelection
   );
 
-  // ── Telemetry query (for TelemetryPanel) ──────────────────────────────────
-
   const {
-    data: telemetryHistoryData,
+    data: healthPanelTelemetryData,
+    isLoading: healthPanelTelemetryLoading,
+    isValidating: healthPanelTelemetryValidating,
   } = useNodeHistory(
     nodeId ?? "",
     "telemetry",
-    [], // empty = all
+    [...HEALTH_PANEL_TELEMETRY_CHARTS],
     chartSelection
   );
-  void telemetryHistoryData; // future use
 
   const headlineChartsBusy = headlineLoading || headlineValidating;
   const allChartsBusy = allLoading || allValidating;
-  const healthPanelChartsBusy = healthPanelLoading || healthPanelValidating;
+  const healthPanelChartsBusy =
+    healthPanelLoading ||
+    healthPanelValidating ||
+    healthPanelTelemetryLoading ||
+    healthPanelTelemetryValidating;
 
   // ─── Guards ────────────────────────────────────────────────────────────────
 
@@ -358,9 +366,16 @@ export default function NodeDetail() {
     ? transformQueryResponse(allHistoryData.response)
     : null;
 
-  const healthPanelSeries = healthPanelHistoryData
-    ? transformQueryResponse(healthPanelHistoryData.response)
-    : null;
+  const healthPanelSeries = useMemo(() => {
+    if (!healthPanelHistoryData && !healthPanelTelemetryData) return null;
+    const readings = healthPanelHistoryData
+      ? transformQueryResponse(healthPanelHistoryData.response)
+      : {};
+    const telemetry = healthPanelTelemetryData
+      ? transformQueryResponse(healthPanelTelemetryData.response)
+      : {};
+    return { ...readings, ...telemetry };
+  }, [healthPanelHistoryData, healthPanelTelemetryData]);
 
   // ── Chart rendering helpers ───────────────────────────────────────────────
 
@@ -525,7 +540,8 @@ export default function NodeDetail() {
         onRefresh={refresh}
         isRefreshing={isRefreshing}
         healthPanelSeries={healthPanelSeries}
-        healthPanelChartMetrics={[...HEALTH_PANEL_READING_CHARTS]}
+        healthPanelTelemetryChartMetrics={[...HEALTH_PANEL_TELEMETRY_CHARTS]}
+        healthPanelReadingChartMetrics={[...HEALTH_PANEL_READING_CHARTS]}
         chartWindow={axisWindow}
         healthChartsBusy={healthPanelChartsBusy}
       />

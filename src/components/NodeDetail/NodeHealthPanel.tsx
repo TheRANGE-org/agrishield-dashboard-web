@@ -27,7 +27,8 @@ interface NodeHealthPanelProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   healthPanelSeries?: MetricSeriesMap | null;
-  healthPanelChartMetrics?: string[];
+  healthPanelReadingChartMetrics?: string[];
+  healthPanelTelemetryChartMetrics?: string[];
   chartWindow?: TimeWindow;
   healthChartsBusy?: boolean;
 }
@@ -78,7 +79,8 @@ export default function NodeHealthPanel({
   onRefresh,
   isRefreshing = false,
   healthPanelSeries = null,
-  healthPanelChartMetrics = [],
+  healthPanelReadingChartMetrics = [],
+  healthPanelTelemetryChartMetrics = [],
   chartWindow = "24h",
   healthChartsBusy = false,
 }: NodeHealthPanelProps) {
@@ -127,6 +129,19 @@ export default function NodeHealthPanel({
   }, [navigate, location.pathname, location.search]);
 
   const diskPct = telemetryValues["system_health_disk_usage_percent"];
+  const pendingBatches = telemetryValues["system_health_queue_pending_batches"];
+  const queueRanges =
+    catalog.metrics["system_health_queue_pending_batches"]?.reference_ranges;
+  const queueCritical =
+    typeof queueRanges?.critical_high === "number" &&
+    typeof pendingBatches === "number" &&
+    pendingBatches >= queueRanges.critical_high;
+  const queueWarning =
+    !queueCritical &&
+    typeof queueRanges?.warning_high === "number" &&
+    typeof pendingBatches === "number" &&
+    pendingBatches >= queueRanges.warning_high;
+
   const collapsedSummaryParts: string[] = [];
   if (sensorHealth.total > 0) {
     collapsedSummaryParts.push(
@@ -141,7 +156,58 @@ export default function NodeHealthPanel({
   if (typeof diskPct === "number") {
     collapsedSummaryParts.push(`disk ${diskPct.toFixed(0)}%`);
   }
+  if (typeof pendingBatches === "number" && pendingBatches > 0) {
+    collapsedSummaryParts.push(`${pendingBatches} batches queued`);
+  }
   const collapsedSummary = collapsedSummaryParts.join(" · ");
+
+  function renderMetricCharts(
+    title: string,
+    metrics: string[],
+    emptyDetail: string
+  ) {
+    if (metrics.length === 0) return null;
+
+    return (
+      <div className="mb-4">
+        <h3 className="text-xs font-semibold text-slate-600 mb-2">{title}</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [&>*]:min-w-0">
+          {metrics.map((metricName) => {
+            const meta = catalog.metrics[metricName];
+            if (!meta) return null;
+            const data = healthPanelSeries?.[metricName] ?? [];
+            const showSkeleton = healthChartsBusy && !healthPanelSeries;
+
+            return (
+              <div
+                key={metricName}
+                className="rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden"
+              >
+                <div className="px-3 pt-2 pb-1">
+                  <h4 className="text-xs font-medium text-slate-700">
+                    {meta.label}
+                  </h4>
+                </div>
+                <div className="px-1 pb-2">
+                  {showSkeleton ? (
+                    <ChartSkeleton />
+                  ) : !hasData(data) ? (
+                    <ChartEmpty label={meta.label} detail={emptyDetail} />
+                  ) : (
+                    <MetricChart
+                      metric={meta}
+                      data={data}
+                      window={chartWindow}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <section
@@ -247,6 +313,34 @@ export default function NodeHealthPanel({
             </dd>
           </div>
         )}
+        {typeof pendingBatches === "number" && (
+          <div>
+            <dt className="text-slate-400">Upload queue</dt>
+            <dd
+              className={[
+                "font-medium mt-0.5 tabular-nums",
+                queueCritical
+                  ? "text-red-700"
+                  : queueWarning
+                  ? "text-amber-700"
+                  : pendingBatches > 0
+                  ? "text-amber-800"
+                  : "text-slate-800",
+              ].join(" ")}
+            >
+              {pendingBatches === 0
+                ? "Clear — no batches waiting"
+                : `${pendingBatches.toLocaleString()} batch${
+                    pendingBatches === 1 ? "" : "es"
+                  } pending upload`}
+            </dd>
+            <dd className="text-slate-500">
+              {pendingBatches > 0
+                ? "Node is buffering locally; chart below shows drain trend"
+                : "Batches in data/queue/ awaiting edge upload"}
+            </dd>
+          </div>
+        )}
       </dl>
 
       {sensorHealth.details.length > 0 && (
@@ -276,49 +370,16 @@ export default function NodeHealthPanel({
         dashboard.
       </p>
 
-      {healthPanelChartMetrics.length > 0 && (
-        <div className="mb-4">
-          <h3 className="text-xs font-semibold text-slate-600 mb-2">
-            Readings pipeline
-          </h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [&>*]:min-w-0">
-            {healthPanelChartMetrics.map((metricName) => {
-              const meta = catalog.metrics[metricName];
-              if (!meta) return null;
-              const data = healthPanelSeries?.[metricName] ?? [];
-              const showSkeleton = healthChartsBusy && !healthPanelSeries;
+      {renderMetricCharts(
+        "Upload queue",
+        healthPanelTelemetryChartMetrics,
+        "No telemetry in the selected time window."
+      )}
 
-              return (
-                <div
-                  key={metricName}
-                  className="rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden"
-                >
-                  <div className="px-3 pt-2 pb-1">
-                    <h4 className="text-xs font-medium text-slate-700">
-                      {meta.label}
-                    </h4>
-                  </div>
-                  <div className="px-1 pb-2">
-                    {showSkeleton ? (
-                      <ChartSkeleton />
-                    ) : !hasData(data) ? (
-                      <ChartEmpty
-                        label={meta.label}
-                        detail="No readings in the selected time window."
-                      />
-                    ) : (
-                      <MetricChart
-                        metric={meta}
-                        data={data}
-                        window={chartWindow}
-                      />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {renderMetricCharts(
+        "Readings pipeline",
+        healthPanelReadingChartMetrics,
+        "No readings in the selected time window."
       )}
 
       <h3 className="text-xs font-semibold text-slate-600 mb-2">
