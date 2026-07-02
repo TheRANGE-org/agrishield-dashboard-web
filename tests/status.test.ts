@@ -6,6 +6,7 @@ import {
   computeSensorHealth,
   computeConnectivityWarning,
   decodePiThrottledState,
+  LAST_OK_STALE_SEC,
 } from "../src/lib/status";
 
 describe("computeStatus", () => {
@@ -130,6 +131,47 @@ describe("computeSensorHealth", () => {
     expect(result.healthy).toBe(0);
     expect(result.total).toBe(0);
     expect(result.overallSeverity).toBe("healthy");
+  });
+
+  it("marks unhealthy when last_ok_ts is older than stale threshold", () => {
+    const nowSec = 1_800_000_000;
+    const result = computeSensorHealth(
+      {
+        ...baseValues,
+        sensor_health_sps30_last_ok_ts: nowSec - LAST_OK_STALE_SEC - 60,
+        sensor_health_scd41_last_ok_ts: nowSec - 30,
+      },
+      {
+        readingValues: { sps30_pm2_5: 4.5, scd41_co2_ppm: 420 },
+        nowSec,
+      }
+    );
+    expect(result.overallSeverity).toBe("unhealthy");
+    expect(result.unhealthyLabels).toContain("SPS30 (stale)");
+    const sps30 = result.details.find((d) => d.label === "SPS30");
+    expect(sps30?.lastOkAgeSec).toBeGreaterThan(LAST_OK_STALE_SEC);
+    expect(sps30?.detail).toContain("no successful read");
+  });
+
+  it("includes last OK age and auto re-init count in sensor details", () => {
+    const nowSec = 1_800_000_000;
+    const result = computeSensorHealth(
+      {
+        ...baseValues,
+        sensor_health_sps30_last_ok_ts: nowSec - 120,
+        sensor_health_sps30_auto_reinit_count: 4,
+      },
+      {
+        readingValues: { sps30_pm2_5: 4.5, scd41_co2_ppm: 420 },
+        nowSec,
+      }
+    );
+    const sps30 = result.details.find((d) => d.label === "SPS30");
+    expect(sps30?.lastOkAgeSec).toBe(120);
+    expect(sps30?.autoReinitCount).toBe(4);
+    expect(sps30?.detail).toContain("last OK read 2m ago");
+    expect(sps30?.detail).toContain("4 auto re-inits");
+    expect(result.overallSeverity).toBe("degraded");
   });
 });
 

@@ -38,6 +38,30 @@ function SensorStatusRow({ detail }: { detail: SensorHealthDetail }) {
     >
       <div className="font-semibold">{detail.label}</div>
       <div className="mt-0.5 opacity-90">{detail.detail}</div>
+      {(detail.lastOkAgeSec != null || detail.autoReinitCount != null) && (
+        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] tabular-nums opacity-90">
+          {detail.lastOkAgeSec != null && (
+            <>
+              <dt className="text-inherit/70">Last OK read</dt>
+              <dd>
+                {detail.lastOkAgeSec < 60
+                  ? `${detail.lastOkAgeSec}s ago`
+                  : detail.lastOkAgeSec < 3600
+                    ? `${Math.floor(detail.lastOkAgeSec / 60)}m ago`
+                    : detail.lastOkAgeSec < 86400
+                      ? `${Math.floor(detail.lastOkAgeSec / 3600)}h ago`
+                      : `${Math.floor(detail.lastOkAgeSec / 86400)}d ago`}
+              </dd>
+            </>
+          )}
+          {detail.autoReinitCount != null && detail.autoReinitCount > 0 && (
+            <>
+              <dt className="text-inherit/70">Auto re-inits</dt>
+              <dd>{detail.autoReinitCount.toLocaleString()}</dd>
+            </>
+          )}
+        </dl>
+      )}
     </div>
   );
 }
@@ -163,9 +187,9 @@ export default function NodeHealthPanel({
       )}
 
       <p className="text-xs text-slate-400 mb-3">
-        To read sensors live on the Pi (UART / I2C test), use the field setup app
-        while connected via Tailscale or local network. The refresh button above
-        reloads data already ingested into the dashboard.
+        Use the field setup app (System tab) to check or restart sensors on the
+        Pi. The refresh button above reloads data already ingested into the
+        dashboard.
       </p>
 
       <h3 className="text-xs font-semibold text-slate-600 mb-2">

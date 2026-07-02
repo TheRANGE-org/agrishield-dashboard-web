@@ -54,6 +54,10 @@ export interface SensorHealthDetail {
   detail: string;
   errorCount: number;
   isStale: boolean;
+  /** Seconds since last successful hardware read (from firmware last_ok_ts). */
+  lastOkAgeSec: number | null;
+  /** SPS30 auto re-init count since service start, when available. */
+  autoReinitCount: number | null;
 }
 
 export interface SensorHealthResult {
@@ -71,15 +75,21 @@ const MONITORED_SENSORS = [
     label: "SPS30",
     init: "sensor_health_sps30_is_initialized",
     errors: "sensor_health_sps30_error_count",
+    lastOk: "sensor_health_sps30_last_ok_ts",
+    autoReinit: "sensor_health_sps30_auto_reinit_count",
     readingMetrics: ["sps30_pm2_5"],
   },
   {
     label: "SCD41",
     init: "sensor_health_scd41_is_initialized",
     errors: "sensor_health_scd41_error_count",
+    lastOk: "sensor_health_scd41_last_ok_ts",
     readingMetrics: ["scd41_co2_ppm"],
   },
 ] as const;
+
+/** Age of last_ok_ts beyond which a sensor is treated as stale. */
+export const LAST_OK_STALE_SEC = 600;
 
 export interface ComputeSensorHealthOptions {
   /** Sensor type labels with flat-line readings (e.g. "SPS30"). */
@@ -95,6 +105,13 @@ function severityRank(s: SensorHealthSeverity): number {
   if (s === "unhealthy") return 2;
   if (s === "degraded") return 1;
   return 0;
+}
+
+function formatLastOkAge(seconds: number): string {
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 function formatErrorDetail(label: string, errorCount: number, isStale: boolean): string {
@@ -141,7 +158,19 @@ export function computeSensorHealth(
       typeof values[sensor.errors] === "number"
         ? (values[sensor.errors] as number)
         : 0;
-    const isStale = staleSensors.has(sensor.label);
+    const lastOkTs =
+      typeof values[sensor.lastOk] === "number"
+        ? (values[sensor.lastOk] as number)
+        : null;
+    const lastOkAgeSec =
+      lastOkTs != null ? Math.max(0, nowSec - lastOkTs) : null;
+    const autoReinitCount =
+      "autoReinit" in sensor && typeof values[sensor.autoReinit] === "number"
+        ? (values[sensor.autoReinit] as number)
+        : null;
+    const isLastOkStale =
+      lastOkAgeSec != null && lastOkAgeSec > LAST_OK_STALE_SEC;
+    const isStale = staleSensors.has(sensor.label) || isLastOkStale;
 
     const hasReading = sensor.readingMetrics.some((m) => {
       const v = options.readingValues?.[m];
@@ -151,7 +180,7 @@ export function computeSensorHealth(
     let severity: SensorHealthSeverity = "healthy";
     if (isStale || (errorCount > 0 && !hasReading)) {
       severity = "unhealthy";
-    } else if (errorCount > 0) {
+    } else if (errorCount > 0 || (autoReinitCount != null && autoReinitCount >= 3)) {
       severity = "degraded";
     }
 
@@ -163,12 +192,28 @@ export function computeSensorHealth(
     }
 
     const detailParts: string[] = [];
-    if (isStale) detailParts.push("reading unchanged for 3+ minutes");
+    if (isStale) {
+      detailParts.push(
+        isLastOkStale && !staleSensors.has(sensor.label)
+          ? `no successful read for ${formatLastOkAge(lastOkAgeSec!)}`
+          : "reading unchanged for 3+ minutes"
+      );
+    }
+    if (lastOkAgeSec != null && !isStale) {
+      detailParts.push(`last OK read ${formatLastOkAge(lastOkAgeSec)}`);
+    }
     if (errorCount > 0) {
       detailParts.push(
         errorCount === 1
           ? "1 read error since last successful sample"
           : `${errorCount.toLocaleString()} read errors since last successful sample`
+      );
+    }
+    if (autoReinitCount != null && autoReinitCount > 0) {
+      detailParts.push(
+        autoReinitCount === 1
+          ? "1 auto re-init since service start"
+          : `${autoReinitCount.toLocaleString()} auto re-inits since service start`
       );
     }
     if (detailParts.length === 0) detailParts.push("operating normally");
@@ -180,6 +225,8 @@ export function computeSensorHealth(
       detail: detailParts.join("; "),
       errorCount,
       isStale,
+      lastOkAgeSec,
+      autoReinitCount,
     });
 
     if (severityRank(severity) > severityRank(overallSeverity)) {
