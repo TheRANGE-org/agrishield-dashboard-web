@@ -516,6 +516,20 @@ export default function NodeDetail() {
       {/* ── Latest-state strip ────────────────────────────────────────────── */}
       <LatestStrip node={node} nowMs={nowMs} catalog={catalog} />
 
+      {/* ── Node health & telemetry (collapsed by default) ─────────────────── */}
+      <NodeHealthPanel
+        node={node}
+        catalog={cat}
+        nowMs={nowMs}
+        staleSensors={staleByNode.get(node.nodeId)}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+        healthPanelSeries={healthPanelSeries}
+        healthPanelChartMetrics={[...HEALTH_PANEL_READING_CHARTS]}
+        chartWindow={axisWindow}
+        healthChartsBusy={healthPanelChartsBusy}
+      />
+
       {/* ── Headline charts ───────────────────────────────────────────────── */}
       <section aria-label="Headline metrics" className="relative">
         <ChartLoadingOverlay active={headlineChartsBusy} />
@@ -558,20 +572,6 @@ export default function NodeDetail() {
           </div>
         )}
       </section>
-
-      {/* ── Node health & telemetry ───────────────────────────────────────── */}
-      <NodeHealthPanel
-        node={node}
-        catalog={cat}
-        nowMs={nowMs}
-        staleSensors={staleByNode.get(node.nodeId)}
-        onRefresh={refresh}
-        isRefreshing={isRefreshing}
-        healthPanelSeries={healthPanelSeries}
-        healthPanelChartMetrics={[...HEALTH_PANEL_READING_CHARTS]}
-        chartWindow={axisWindow}
-        healthChartsBusy={healthPanelChartsBusy}
-      />
     </div>
   );
 }

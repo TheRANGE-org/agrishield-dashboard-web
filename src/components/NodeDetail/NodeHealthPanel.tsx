@@ -1,4 +1,5 @@
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ExternalLink, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import type { FleetNode, Catalog } from "../../api/types";
 import {
   computeSensorHealth,
@@ -95,23 +96,78 @@ export default function NodeHealthPanel({
 
   const setupUrl = nodeSetupUrl(node);
 
+  const [expanded, setExpanded] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.location.hash === "#sensor-health"
+  );
+
+  useEffect(() => {
+    const openFromHash = () => {
+      if (window.location.hash === "#sensor-health") {
+        setExpanded(true);
+      }
+    };
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
+  }, []);
+
+  const diskPct = telemetryValues["system_health_disk_usage_percent"];
+  const collapsedSummaryParts: string[] = [];
+  if (sensorHealth.total > 0) {
+    collapsedSummaryParts.push(
+      `${sensorHealth.healthy}/${sensorHealth.total} sensors healthy`
+    );
+  }
+  if (node.latest_telemetry?.ts) {
+    collapsedSummaryParts.push(
+      `telemetry ${formatSecondsSince(nowMs, node.latest_telemetry.ts)}`
+    );
+  }
+  if (typeof diskPct === "number") {
+    collapsedSummaryParts.push(`disk ${diskPct.toFixed(0)}%`);
+  }
+  const collapsedSummary = collapsedSummaryParts.join(" · ");
+
   return (
     <section
       id="sensor-health"
       aria-label="Node health and telemetry"
-      className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-4 scroll-mt-20"
+      className="bg-white rounded-xl border border-slate-200 shadow-sm scroll-mt-20"
     >
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-700">
-            Node health &amp; telemetry
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Contact, restart, and per-sensor status from the latest telemetry
-            snapshot.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 px-4 py-3 border-b border-slate-100">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-start gap-2 text-left min-w-0 flex-1 hover:opacity-90 transition-opacity"
+          aria-expanded={expanded}
+          aria-controls="node-health-panel-body"
+        >
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" aria-hidden />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" aria-hidden />
+          )}
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-700">
+              Node health &amp; telemetry
+            </h2>
+            {expanded ? (
+              <p className="text-xs text-slate-500 mt-0.5">
+                Contact, restart, and per-sensor status from the latest telemetry
+                snapshot.
+              </p>
+            ) : (
+              collapsedSummary && (
+                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                  {collapsedSummary}
+                </p>
+              )
+            )}
+          </div>
+        </button>
+        <div className="flex flex-wrap gap-2 shrink-0 sm:pl-2">
           {onRefresh && (
             <button
               type="button"
@@ -140,6 +196,8 @@ export default function NodeHealthPanel({
         </div>
       </div>
 
+      {expanded && (
+        <div id="node-health-panel-body" className="px-4 py-4">
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-4 text-xs">
         <div>
           <dt className="text-slate-400">Last communication</dt>
@@ -258,6 +316,8 @@ export default function NodeHealthPanel({
         values={telemetryValues}
         source="telemetry"
       />
+        </div>
+      )}
     </section>
   );
 }
