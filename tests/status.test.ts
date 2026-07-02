@@ -135,15 +135,17 @@ describe("computeSensorHealth", () => {
 
   it("marks unhealthy when last_ok_ts is older than stale threshold", () => {
     const nowSec = 1_800_000_000;
+    const telemetryTs = nowSec - 60;
     const result = computeSensorHealth(
       {
         ...baseValues,
-        sensor_health_sps30_last_ok_ts: nowSec - LAST_OK_STALE_SEC - 60,
-        sensor_health_scd41_last_ok_ts: nowSec - 30,
+        sensor_health_sps30_last_ok_ts: telemetryTs - LAST_OK_STALE_SEC - 60,
+        sensor_health_scd41_last_ok_ts: telemetryTs - 30,
       },
       {
         readingValues: { sps30_pm2_5: 4.5, scd41_co2_ppm: 420 },
         nowSec,
+        telemetryTs,
       }
     );
     expect(result.overallSeverity).toBe("unhealthy");
@@ -151,6 +153,28 @@ describe("computeSensorHealth", () => {
     const sps30 = result.details.find((d) => d.label === "SPS30");
     expect(sps30?.lastOkAgeSec).toBeGreaterThan(LAST_OK_STALE_SEC);
     expect(sps30?.detail).toContain("no successful read");
+  });
+
+  it("stays healthy between telemetry reports when last_ok_ts was fresh at snapshot", () => {
+    const nowSec = 1_800_000_000;
+    const telemetryTs = nowSec - 840;
+    const result = computeSensorHealth(
+      {
+        ...baseValues,
+        sensor_health_sps30_last_ok_ts: telemetryTs - 8,
+        sensor_health_scd41_last_ok_ts: telemetryTs - 8,
+      },
+      {
+        readingValues: { sps30_pm2_5: 4.5, scd41_co2_ppm: 420 },
+        nowSec,
+        telemetryTs,
+      }
+    );
+    expect(result.overallSeverity).toBe("healthy");
+    expect(result.unhealthyLabels).toEqual([]);
+    const sps30 = result.details.find((d) => d.label === "SPS30");
+    expect(sps30?.lastOkAgeSec).toBe(8);
+    expect(sps30?.isStale).toBe(false);
   });
 
   it("includes last OK age and auto re-init count in sensor details", () => {

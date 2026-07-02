@@ -90,8 +90,20 @@ const MONITORED_SENSORS = [
   },
 ] as const;
 
-/** Age of last_ok_ts beyond which a sensor is treated as stale. */
+/** Age of last_ok_ts beyond which a sensor is treated as stale (at telemetry snapshot time). */
 export const LAST_OK_STALE_SEC = 600;
+
+function healthReferenceSec(
+  nowSec: number,
+  telemetryTs: number | null | undefined
+): number {
+  // last_ok_ts arrives in ~15 min telemetry snapshots; age must be measured at
+  // snapshot time, not wall clock, or panels go red between telemetry reports.
+  if (telemetryTs != null && telemetryTs > 0) {
+    return telemetryTs;
+  }
+  return nowSec;
+}
 
 export interface ComputeSensorHealthOptions {
   /** Sensor type labels with flat-line readings (e.g. "SPS30"). */
@@ -137,6 +149,7 @@ export function computeSensorHealth(
     options.telemetryTs != null && options.telemetryTs > 0
       ? Math.max(0, nowSec - options.telemetryTs)
       : null;
+  const healthRefSec = healthReferenceSec(nowSec, options.telemetryTs);
 
   let healthy = 0;
   let total = 0;
@@ -158,7 +171,7 @@ export function computeSensorHealth(
         ? (values[sensor.lastOk] as number)
         : null;
     const lastOkAgeSec =
-      lastOkTs != null ? Math.max(0, nowSec - lastOkTs) : null;
+      lastOkTs != null ? Math.max(0, healthRefSec - lastOkTs) : null;
     const autoReinitCount =
       "autoReinit" in sensor
         ? typeof values[sensor.autoReinit] === "number"

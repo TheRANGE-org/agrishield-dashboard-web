@@ -184,6 +184,13 @@ export default function NodeHealthPanel({
             Monitored sensors ({sensorHealth.healthy}/{sensorHealth.total}{" "}
             healthy)
           </h3>
+          {sensorHealth.telemetryAgeSeconds != null &&
+            sensorHealth.telemetryAgeSeconds > 300 && (
+              <p className="text-[11px] text-slate-400 mb-2">
+                Sensor last-OK times are from the telemetry snapshot (
+                {formatSecondsSince(nowMs, node.latest_telemetry!.ts)}).
+              </p>
+            )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {sensorHealth.details.map((d) => (
               <SensorStatusRow key={d.label} detail={d} />
