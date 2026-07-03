@@ -17,6 +17,7 @@ import type { MetricSeriesMap } from "../../lib/chartData";
 import { hasData } from "../../lib/chartData";
 import type { TimeWindow } from "../../lib/timeWindow";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
+import PairedChart from "./PairedChart";
 import TelemetryPanel from "./TelemetryPanel";
 
 interface NodeHealthPanelProps {
@@ -27,6 +28,8 @@ interface NodeHealthPanelProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   healthPanelSeries?: MetricSeriesMap | null;
+  healthPanelPowerPair?: { primary: string; paired: string };
+  healthPanelConnectivityChartMetrics?: string[];
   healthPanelReadingChartMetrics?: string[];
   healthPanelTelemetryChartMetrics?: string[];
   chartWindow?: TimeWindow;
@@ -79,6 +82,8 @@ export default function NodeHealthPanel({
   onRefresh,
   isRefreshing = false,
   healthPanelSeries = null,
+  healthPanelPowerPair,
+  healthPanelConnectivityChartMetrics = [],
   healthPanelReadingChartMetrics = [],
   healthPanelTelemetryChartMetrics = [],
   chartWindow = "24h",
@@ -129,6 +134,7 @@ export default function NodeHealthPanel({
   }, [navigate, location.pathname, location.search]);
 
   const diskPct = telemetryValues["system_health_disk_usage_percent"];
+  const batteryPct = telemetryValues["sensor_health_battery_percentage"];
   const pendingBatches = telemetryValues["system_health_queue_pending_batches"];
   const queueRanges =
     catalog.metrics["system_health_queue_pending_batches"]?.reference_ranges;
@@ -156,10 +162,69 @@ export default function NodeHealthPanel({
   if (typeof diskPct === "number") {
     collapsedSummaryParts.push(`disk ${diskPct.toFixed(0)}%`);
   }
+  if (typeof batteryPct === "number") {
+    collapsedSummaryParts.push(`battery ${batteryPct.toFixed(0)}%`);
+  }
   if (typeof pendingBatches === "number" && pendingBatches > 0) {
     collapsedSummaryParts.push(`${pendingBatches} batches queued`);
   }
   const collapsedSummary = collapsedSummaryParts.join(" · ");
+
+  function seriesForMetric(metricName: string) {
+    const data = healthPanelSeries?.[metricName] ?? [];
+    if (metricName === "system_health_network_latency_ms") {
+      return data.map((point) =>
+        point.value != null && point.value < 0 ? { ...point, value: null } : point
+      );
+    }
+    return data;
+  }
+
+  function renderPowerChart() {
+    if (!healthPanelPowerPair) return null;
+
+    const primaryMeta = catalog.metrics[healthPanelPowerPair.primary];
+    const pairedMeta = catalog.metrics[healthPanelPowerPair.paired];
+    if (!primaryMeta || !pairedMeta) return null;
+
+    const avgData = healthPanelSeries?.[healthPanelPowerPair.primary] ?? [];
+    const peakData = healthPanelSeries?.[healthPanelPowerPair.paired] ?? [];
+    const showSkeleton = healthChartsBusy && !healthPanelSeries;
+    const hasAnyData = hasData(avgData) || hasData(peakData);
+
+    return (
+      <div className="mb-4">
+        <h3 className="text-xs font-semibold text-slate-600 mb-2">Power</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [&>*]:min-w-0">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden md:col-span-2">
+            <div className="px-3 pt-2 pb-1">
+              <h4 className="text-xs font-medium text-slate-700">
+                {primaryMeta.label} &amp; {pairedMeta.label}
+              </h4>
+            </div>
+            <div className="px-1 pb-2">
+              {showSkeleton ? (
+                <ChartSkeleton />
+              ) : !hasAnyData ? (
+                <ChartEmpty
+                  label={primaryMeta.label}
+                  detail="No telemetry in the selected time window."
+                />
+              ) : (
+                <PairedChart
+                  avgMetric={primaryMeta}
+                  peakMetric={pairedMeta}
+                  avgData={avgData}
+                  peakData={peakData}
+                  window={chartWindow}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   function renderMetricCharts(
     title: string,
@@ -175,7 +240,7 @@ export default function NodeHealthPanel({
           {metrics.map((metricName) => {
             const meta = catalog.metrics[metricName];
             if (!meta) return null;
-            const data = healthPanelSeries?.[metricName] ?? [];
+            const data = seriesForMetric(metricName);
             const showSkeleton = healthChartsBusy && !healthPanelSeries;
 
             return (
@@ -369,6 +434,14 @@ export default function NodeHealthPanel({
         Pi. The refresh button above reloads data already ingested into the
         dashboard.
       </p>
+
+      {renderPowerChart()}
+
+      {renderMetricCharts(
+        "Connectivity",
+        healthPanelConnectivityChartMetrics,
+        "No telemetry in the selected time window."
+      )}
 
       {renderMetricCharts(
         "Upload queue",

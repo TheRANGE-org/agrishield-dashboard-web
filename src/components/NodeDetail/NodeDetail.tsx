@@ -48,10 +48,35 @@ const HEADLINE_METRICS: { primary: string; paired?: string }[] = [
 /** Envelope diagnostics shown on the node health panel instead of "Show all". */
 const HEALTH_PANEL_READING_CHARTS = ["sample_count", "byte_count"] as const;
 
+/** Battery pair on the health panel (telemetry, ~15 min cadence). */
+export const HEALTH_PANEL_POWER_PAIR = {
+  primary: "sensor_health_battery_percentage",
+  paired: "sensor_health_battery_voltage_v",
+} as const;
+
+/** Connectivity telemetry charts on the health panel. */
+const HEALTH_PANEL_CONNECTIVITY_CHARTS = [
+  "system_health_network_latency_ms",
+  "system_health_wifi_signal_level_dbm",
+  "system_health_tailscale_online",
+] as const;
+
 /** Telemetry metrics charted on the node health panel (upload queue, etc.). */
 const HEALTH_PANEL_TELEMETRY_CHARTS = [
+  ...HEALTH_PANEL_CONNECTIVITY_CHARTS,
   "system_health_queue_pending_batches",
 ] as const;
+
+/** All telemetry metrics fetched for the health panel (charts + power pair). */
+function healthPanelTelemetryMetricNames(): string[] {
+  return [
+    ...new Set([
+      ...HEALTH_PANEL_TELEMETRY_CHARTS,
+      HEALTH_PANEL_POWER_PAIR.primary,
+      HEALTH_PANEL_POWER_PAIR.paired,
+    ]),
+  ];
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -314,7 +339,7 @@ export default function NodeDetail() {
   } = useNodeHistory(
     nodeId ?? "",
     "telemetry",
-    [...HEALTH_PANEL_TELEMETRY_CHARTS],
+    healthPanelTelemetryMetricNames(),
     chartSelection
   );
 
@@ -541,7 +566,9 @@ export default function NodeDetail() {
         onRefresh={refresh}
         isRefreshing={isRefreshing}
         healthPanelSeries={healthPanelSeries}
-        healthPanelTelemetryChartMetrics={[...HEALTH_PANEL_TELEMETRY_CHARTS]}
+        healthPanelPowerPair={HEALTH_PANEL_POWER_PAIR}
+        healthPanelConnectivityChartMetrics={[...HEALTH_PANEL_CONNECTIVITY_CHARTS]}
+        healthPanelTelemetryChartMetrics={["system_health_queue_pending_batches"]}
         healthPanelReadingChartMetrics={[...HEALTH_PANEL_READING_CHARTS]}
         chartWindow={axisWindow}
         healthChartsBusy={healthPanelChartsBusy}
