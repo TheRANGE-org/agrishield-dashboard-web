@@ -138,6 +138,8 @@ export default function NodeHealthPanel({
   const diskPct = telemetryValues["system_health_disk_usage_percent"];
   const batteryPct = telemetryValues["sensor_health_battery_percentage"];
   const pendingBatches = telemetryValues["system_health_queue_pending_batches"];
+  const wifiSsid = telemetryValues["system_health_wifi_ssid"];
+  const wifiIpv4 = telemetryValues["system_health_wifi_ipv4"];
   const queueRanges =
     catalog.metrics["system_health_queue_pending_batches"]?.reference_ranges;
   const queueCritical =
@@ -382,6 +384,19 @@ export default function NodeHealthPanel({
             <dd className="text-slate-500">
               Health metrics update every ~15 min on the node
             </dd>
+          </div>
+        )}
+        {(typeof wifiSsid === "string" || typeof wifiIpv4 === "string") && (
+          <div>
+            <dt className="text-slate-400">WiFi (local LAN)</dt>
+            <dd className="font-medium text-slate-800 mt-0.5">
+              {typeof wifiSsid === "string" && wifiSsid.length > 0
+                ? wifiSsid
+                : "—"}
+            </dd>
+            {typeof wifiIpv4 === "string" && wifiIpv4.length > 0 && (
+              <dd className="text-slate-500 mt-0.5 tabular-nums">{wifiIpv4}</dd>
+            )}
           </div>
         )}
         {node.overlay && (

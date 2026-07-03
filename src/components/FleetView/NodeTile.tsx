@@ -98,6 +98,8 @@ export default function NodeTile({
   const memPct = telemetryValues["system_health_memory_usage_percent"];
   const diskPct = telemetryValues["system_health_disk_usage_percent"];
   const cpuUsage = telemetryValues["system_health_cpu_usage_percent"];
+  const wifiSsid = telemetryValues["system_health_wifi_ssid"];
+  const wifiIpv4 = telemetryValues["system_health_wifi_ipv4"];
   const uptimeSeconds = node.registration?.uptime_seconds ?? null;
 
   // Primary reading values for display
@@ -325,21 +327,44 @@ export default function NodeTile({
                 Uptime: <span className="text-slate-600 font-medium">{formatUptime(uptimeSeconds)}</span>
               </div>
             )}
-            {node.overlay && (
+            {(node.overlay ||
+              typeof wifiSsid === "string" ||
+              typeof wifiIpv4 === "string" ||
+              typeof wifiSignalDbm === "number") && (
               <div className="col-span-2 pt-1 text-xs text-slate-400 border-t border-slate-100 mt-1 space-y-0.5">
                 <div>
-                  Mesh IP:{" "}
-                  <span className="text-slate-600 font-medium tabular-nums">
-                    {node.overlay.tailscale_ip ?? "—"}
+                  WiFi:{" "}
+                  <span className="text-slate-600 font-medium">
+                    {typeof wifiSsid === "string" && wifiSsid.length > 0
+                      ? wifiSsid
+                      : "—"}
                   </span>
+                  {typeof wifiIpv4 === "string" && wifiIpv4.length > 0 && (
+                    <>
+                      {" "}
+                      <span className="text-slate-600 font-medium tabular-nums">
+                        ({wifiIpv4})
+                      </span>
+                    </>
+                  )}
                 </div>
-                {node.overlay.last_seen_ts != null && (
-                  <div>
-                    Mesh last seen:{" "}
-                    <span className="text-slate-600 font-medium tabular-nums">
-                      {formatSecondsSince(nowMs, node.overlay.last_seen_ts)}
-                    </span>
-                  </div>
+                {node.overlay && (
+                  <>
+                    <div>
+                      Mesh IP:{" "}
+                      <span className="text-slate-600 font-medium tabular-nums">
+                        {node.overlay.tailscale_ip ?? "—"}
+                      </span>
+                    </div>
+                    {node.overlay.last_seen_ts != null && (
+                      <div>
+                        Mesh last seen:{" "}
+                        <span className="text-slate-600 font-medium tabular-nums">
+                          {formatSecondsSince(nowMs, node.overlay.last_seen_ts)}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
