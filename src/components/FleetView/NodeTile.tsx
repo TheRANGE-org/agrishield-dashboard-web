@@ -10,6 +10,7 @@ import {
   computeConnectivityWarning,
   computePathMismatch,
   pathMismatchMessage,
+  overlayReachability,
   decodePiThrottledState,
 } from "../../lib/status";
 import { isSensorLabelStale } from "../../lib/staleReadings";
@@ -37,7 +38,6 @@ const STATUS_BG: Record<string, string> = {
 export default function NodeTile({
   node,
   nowMs,
-  catalog: _catalog, // eslint-disable-line @typescript-eslint/no-unused-vars
   onShowOnMap,
   staleByNode,
 }: NodeTileProps) {

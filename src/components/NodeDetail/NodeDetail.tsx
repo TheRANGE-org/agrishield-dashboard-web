@@ -355,6 +355,17 @@ export default function NodeDetail() {
     healthPanelTelemetryLoading ||
     healthPanelTelemetryValidating;
 
+  const healthPanelSeries = useMemo(() => {
+    if (!healthPanelHistoryData && !healthPanelTelemetryData) return null;
+    const readings = healthPanelHistoryData
+      ? transformQueryResponse(healthPanelHistoryData.response)
+      : {};
+    const telemetry = healthPanelTelemetryData
+      ? transformQueryResponse(healthPanelTelemetryData.response)
+      : {};
+    return { ...readings, ...telemetry };
+  }, [healthPanelHistoryData, healthPanelTelemetryData]);
+
   // ─── Guards ────────────────────────────────────────────────────────────────
 
   if (!nodeId) return <Navigate to="/" replace />;
@@ -395,17 +406,6 @@ export default function NodeDetail() {
   const allSeries = allHistoryData
     ? transformQueryResponse(allHistoryData.response)
     : null;
-
-  const healthPanelSeries = useMemo(() => {
-    if (!healthPanelHistoryData && !healthPanelTelemetryData) return null;
-    const readings = healthPanelHistoryData
-      ? transformQueryResponse(healthPanelHistoryData.response)
-      : {};
-    const telemetry = healthPanelTelemetryData
-      ? transformQueryResponse(healthPanelTelemetryData.response)
-      : {};
-    return { ...readings, ...telemetry };
-  }, [healthPanelHistoryData, healthPanelTelemetryData]);
 
   // ── Chart rendering helpers ───────────────────────────────────────────────
 
