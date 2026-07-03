@@ -2,31 +2,38 @@ import type { NodeStatus } from "../../lib/status";
 
 interface StatusBadgeProps {
   status: NodeStatus;
+  /** When set, prefixes the label (e.g. "Data · Live"). */
+  channel?: "data";
 }
+
+const STATUS_LABEL: Record<NodeStatus, string> = {
+  live: "Live",
+  stale: "Stale",
+  dead: "Dead",
+};
 
 const CONFIG: Record<
   NodeStatus,
-  { dot: string; label: string; ring: string }
+  { dot: string; ring: string }
 > = {
   live: {
     dot: "bg-green-500",
-    label: "Live",
     ring: "ring-green-200",
   },
   stale: {
     dot: "bg-amber-400",
-    label: "Stale",
     ring: "ring-amber-200",
   },
   dead: {
     dot: "bg-red-500",
-    label: "Dead",
     ring: "ring-red-200",
   },
 };
 
-export default function StatusBadge({ status }: StatusBadgeProps) {
-  const { dot, label, ring } = CONFIG[status];
+export default function StatusBadge({ status, channel }: StatusBadgeProps) {
+  const { dot, ring } = CONFIG[status];
+  const baseLabel = STATUS_LABEL[status];
+  const label = channel === "data" ? `Data · ${baseLabel}` : baseLabel;
 
   return (
     <span

@@ -1,4 +1,5 @@
 import { formatAgeSecondsAgo } from "./format";
+import type { NodeOverlayStatus } from "../api/types";
 
 export type NodeStatus = "live" | "stale" | "dead";
 
@@ -370,4 +371,39 @@ export function computeConnectivityWarning(
     (typeof wifiQuality === "number" && wifiQuality < WIFI_POOR_QUALITY_THRESHOLD);
 
   return { tailscaleDown, wifiPoor };
+}
+
+// ─── Headscale overlay (control plane) ───────────────────────────────────────
+
+export type OverlayReachability = "online" | "offline" | "unknown";
+
+export type PathMismatchHint = "mesh_up_data_down" | "mesh_down_data_up" | null;
+
+export function overlayReachability(
+  overlay: NodeOverlayStatus | null | undefined
+): OverlayReachability {
+  if (!overlay) return "unknown";
+  return overlay.online ? "online" : "offline";
+}
+
+/** When mesh and ingest disagree, surface a short operator hint. */
+export function computePathMismatch(
+  dataStatus: NodeStatus,
+  overlay: NodeOverlayStatus | null | undefined
+): PathMismatchHint {
+  if (!overlay) return null;
+  if (overlay.online && dataStatus === "dead") return "mesh_up_data_down";
+  if (!overlay.online && dataStatus === "live") return "mesh_down_data_up";
+  return null;
+}
+
+export function pathMismatchMessage(hint: PathMismatchHint): string | null {
+  switch (hint) {
+    case "mesh_up_data_down":
+      return "Mesh is up but sensor data stopped — check Starlink, edge upload, or Pi service.";
+    case "mesh_down_data_up":
+      return "Data is flowing but Headscale reports mesh offline — may be a brief control-plane lag.";
+    default:
+      return null;
+  }
 }

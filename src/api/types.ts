@@ -36,6 +36,16 @@ export interface Catalog {
 
 // ─── Fleet ───────────────────────────────────────────────────────────────────
 
+/** Headscale control-plane connectivity (works when the Pi is not uploading). */
+export interface NodeOverlayStatus {
+  online: boolean;
+  last_seen_ts: number | null;
+  tailscale_ip: string | null;
+  polled_at: number | null;
+  source: string;
+  headscale_name?: string;
+}
+
 export interface FleetNode {
   nodeId: string;
   siteId: string;
@@ -43,6 +53,7 @@ export interface FleetNode {
   longitude: number | null;
   status: "live" | "stale" | "dead";
   seconds_since_contact: number;
+  overlay?: NodeOverlayStatus | null;
   registration: {
     version?: string;
     uptime_seconds?: number;

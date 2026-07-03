@@ -6,6 +6,7 @@ import {
   computeSensorHealth,
   type SensorHealthDetail,
   type SensorHealthSeverity,
+  overlayReachability,
 } from "../../lib/status";
 import {
   formatContactSummary,
@@ -18,6 +19,7 @@ import { hasData } from "../../lib/chartData";
 import type { TimeWindow } from "../../lib/timeWindow";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
 import PairedChart from "./PairedChart";
+import OverlayStatusBadge from "../FleetView/OverlayStatusBadge";
 import TelemetryPanel from "./TelemetryPanel";
 
 interface NodeHealthPanelProps {
@@ -164,6 +166,10 @@ export default function NodeHealthPanel({
   }
   if (typeof batteryPct === "number") {
     collapsedSummaryParts.push(`battery ${batteryPct.toFixed(0)}%`);
+  }
+  const meshReach = overlayReachability(node.overlay);
+  if (meshReach !== "unknown") {
+    collapsedSummaryParts.push(`mesh ${meshReach}`);
   }
   if (typeof pendingBatches === "number" && pendingBatches > 0) {
     collapsedSummaryParts.push(`${pendingBatches} batches queued`);
@@ -375,6 +381,24 @@ export default function NodeHealthPanel({
             </dd>
             <dd className="text-slate-500">
               Health metrics update every ~15 min on the node
+            </dd>
+          </div>
+        )}
+        {node.overlay && (
+          <div>
+            <dt className="text-slate-400">Tailscale mesh (Headscale)</dt>
+            <dd className="mt-0.5">
+              <OverlayStatusBadge overlay={node.overlay} nowMs={nowMs} />
+            </dd>
+            <dd className="text-slate-500 mt-1 tabular-nums">
+              {node.overlay.tailscale_ip && (
+                <span className="block">{node.overlay.tailscale_ip}</span>
+              )}
+              {node.overlay.last_seen_ts != null && (
+                <span className="block">
+                  Last seen {formatSecondsSince(nowMs, node.overlay.last_seen_ts)}
+                </span>
+              )}
             </dd>
           </div>
         )}

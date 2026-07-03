@@ -8,11 +8,14 @@ import {
   parseBatteryStatus,
   computeSensorHealth,
   computeConnectivityWarning,
+  computePathMismatch,
+  pathMismatchMessage,
   decodePiThrottledState,
 } from "../../lib/status";
 import { isSensorLabelStale } from "../../lib/staleReadings";
 import { formatCoordinates, formatSecondsSince, formatUptime } from "../../lib/format";
 import StatusBadge from "./StatusBadge";
+import OverlayStatusBadge from "./OverlayStatusBadge";
 import BatteryIndicator from "./BatteryIndicator";
 import SensorHealthPill from "./SensorHealthPill";
 import ConditionalBadges from "./ConditionalBadges";
@@ -54,6 +57,9 @@ export default function NodeTile({
     lastContactTs > 0
       ? computeStatus(secondsSince)
       : computeStatus(node.seconds_since_contact ?? Number.MAX_SAFE_INTEGER);
+
+  const pathMismatch = computePathMismatch(liveStatus, node.overlay);
+  const pathMismatchNote = pathMismatchMessage(pathMismatch);
 
   const telemetryValues = node.latest_telemetry?.values ?? {};
   const readingValues = node.latest_reading?.values ?? {};
@@ -117,7 +123,15 @@ export default function NodeTile({
       {/* ── Top bar ──────────────────────────────────────────────── */}
       <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <StatusBadge status={liveStatus} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <StatusBadge status={liveStatus} channel="data" />
+            <OverlayStatusBadge overlay={node.overlay} nowMs={nowMs} />
+          </div>
+          {pathMismatchNote && (
+            <p className="mt-1.5 text-[11px] text-amber-800 leading-snug max-w-[16rem]">
+              {pathMismatchNote}
+            </p>
+          )}
           <h2 className="mt-2 text-base font-semibold text-slate-900 truncate leading-snug">
             {node.nodeId}
           </h2>
@@ -210,7 +224,8 @@ export default function NodeTile({
       {/* ── Conditional degradation badges ───────────────────────── */}
       {(!throttleInfo.isHealthy ||
         (typeof pendingBatches === "number" && pendingBatches > 0) ||
-        connectivity.tailscaleDown ||
+        (connectivity.tailscaleDown &&
+          overlayReachability(node.overlay) !== "offline") ||
         connectivity.wifiPoor) && (
         <div className="px-4 pb-3">
           <ConditionalBadges
@@ -308,6 +323,24 @@ export default function NodeTile({
             {uptimeSeconds !== null && (
               <div className="col-span-2 pt-1 text-xs text-slate-400 border-t border-slate-100 mt-1">
                 Uptime: <span className="text-slate-600 font-medium">{formatUptime(uptimeSeconds)}</span>
+              </div>
+            )}
+            {node.overlay && (
+              <div className="col-span-2 pt-1 text-xs text-slate-400 border-t border-slate-100 mt-1 space-y-0.5">
+                <div>
+                  Mesh IP:{" "}
+                  <span className="text-slate-600 font-medium tabular-nums">
+                    {node.overlay.tailscale_ip ?? "—"}
+                  </span>
+                </div>
+                {node.overlay.last_seen_ts != null && (
+                  <div>
+                    Mesh last seen:{" "}
+                    <span className="text-slate-600 font-medium tabular-nums">
+                      {formatSecondsSince(nowMs, node.overlay.last_seen_ts)}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>

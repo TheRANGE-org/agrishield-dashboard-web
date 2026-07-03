@@ -5,6 +5,9 @@ import {
   batteryStatusColor,
   computeSensorHealth,
   computeConnectivityWarning,
+  computePathMismatch,
+  overlayReachability,
+  pathMismatchMessage,
   decodePiThrottledState,
   LAST_OK_STALE_SEC,
 } from "../src/lib/status";
@@ -264,5 +267,52 @@ describe("computeConnectivityWarning", () => {
       system_health_wifi_link_quality: 50,
     };
     expect(computeConnectivityWarning(values).wifiPoor).toBe(false);
+  });
+});
+
+describe("overlayReachability", () => {
+  it("returns unknown when overlay missing", () => {
+    expect(overlayReachability(null)).toBe("unknown");
+  });
+
+  it("reflects Headscale online flag", () => {
+    expect(
+      overlayReachability({
+        online: true,
+        last_seen_ts: 1,
+        tailscale_ip: "100.64.0.8",
+        polled_at: 2,
+        source: "headscale",
+      })
+    ).toBe("online");
+    expect(
+      overlayReachability({
+        online: false,
+        last_seen_ts: 1,
+        tailscale_ip: "100.64.0.8",
+        polled_at: 2,
+        source: "headscale",
+      })
+    ).toBe("offline");
+  });
+});
+
+describe("computePathMismatch", () => {
+  const overlay = {
+    online: true,
+    last_seen_ts: 1,
+    tailscale_ip: "100.64.0.8",
+    polled_at: 2,
+    source: "headscale",
+  };
+
+  it("flags mesh up with dead data path", () => {
+    expect(computePathMismatch("dead", overlay)).toBe("mesh_up_data_down");
+    expect(pathMismatchMessage("mesh_up_data_down")).toMatch(/Starlink/);
+  });
+
+  it("returns null when paths agree", () => {
+    expect(computePathMismatch("live", overlay)).toBeNull();
+    expect(computePathMismatch("dead", { ...overlay, online: false })).toBeNull();
   });
 });

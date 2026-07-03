@@ -13,6 +13,7 @@ import HistoricalPeriodNav from "./HistoricalPeriodNav";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
 import PairedChart from "./PairedChart";
 import NodeHealthPanel from "./NodeHealthPanel";
+import OverlayStatusBadge from "../FleetView/OverlayStatusBadge";
 import type { ChartTimeSelection, TimeWindow } from "../../lib/timeWindow";
 import { useFleetStaleMetrics } from "../../hooks/useFleetStaleMetrics";
 import { useRefreshNodeData } from "../../hooks/useRefreshNodeData";
@@ -159,24 +160,27 @@ function LatestStrip({ node, nowMs, catalog }: LatestStripProps) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
       {/* Status */}
-      <div className="flex items-center gap-1.5">
-        <span
-          className={[
-            "inline-block h-2 w-2 rounded-full",
-            status === "live"
-              ? "bg-green-500"
-              : status === "stale"
-              ? "bg-amber-400"
-              : "bg-red-500",
-          ].join(" ")}
-        />
-        <span className={`font-medium ${statusColor}`}>{statusLabel}</span>
-        <span className="text-slate-400">·</span>
-        <span className="text-slate-500 tabular-nums">
-          {node.latest_reading
-            ? formatSecondsSince(nowMs, node.latest_reading.ts)
-            : "no contact"}
-        </span>
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={[
+              "inline-block h-2 w-2 rounded-full",
+              status === "live"
+                ? "bg-green-500"
+                : status === "stale"
+                ? "bg-amber-400"
+                : "bg-red-500",
+            ].join(" ")}
+          />
+          <span className={`font-medium ${statusColor}`}>Data · {statusLabel}</span>
+          <span className="text-slate-400">·</span>
+          <span className="text-slate-500 tabular-nums">
+            {node.latest_reading
+              ? formatSecondsSince(nowMs, node.latest_reading.ts)
+              : "no contact"}
+          </span>
+        </div>
+        <OverlayStatusBadge overlay={node.overlay} nowMs={nowMs} />
       </div>
 
       {/* Battery */}
