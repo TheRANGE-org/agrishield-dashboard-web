@@ -36,6 +36,7 @@ import { degreesToCompassPoint } from "../../lib/timeWindow";
 const HEADLINE_METRICS: { primary: string; paired?: string }[] = [
   { primary: "bme688_temperature_c" },
   { primary: "bme688_humidity_pct", paired: "avg_absolute_humidity_g_m3" },
+  { primary: "bme688_gas_ohms", paired: "bme688_gas_ohms_ah_normalized" },
   { primary: "sps30_pm2_5", paired: "sps30_pm2_5_max" },
   { primary: "scd41_co2_ppm", paired: "scd41_co2_ppm_max" },
   {

@@ -77,8 +77,14 @@ May 14 event:
 The next analysis I’d do is not raw VOC resistance vs raw PM2.5. I’d compute:
 
 ```text
-VOC resistance / rolling daily baseline
 PM2.5 / rolling daily baseline
+bme688_gas_ohms_ratio_ah_adj   (preferred — humidity-compensated VOC ratio)
 ```
 
-Then check whether the **PM2.5 ratio rises while the VOC resistance ratio drops** during the same 30–90 minute event window. That will separate true event correlation from the normal daily BME688 cycle.
+`bme688_gas_ohms_ratio_ah_adj` is emitted on the Pi after a 60-minute warmup
+and uses a 24-hour rolling median of AH-normalized gas resistance. See
+[`agrishield-raspi4-repo/docs/HUMIDITY_GAS_NORMALIZATION.md`](../../agrishield-raspi4-repo/docs/HUMIDITY_GAS_NORMALIZATION.md).
+
+Then check whether the **PM2.5 ratio rises while the VOC resistance ratio drops**
+during the same 30–90 minute event window. That will separate true event
+correlation from the normal daily BME688 cycle.
