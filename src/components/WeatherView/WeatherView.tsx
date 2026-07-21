@@ -13,8 +13,7 @@ import WeatherCurrentReadings from "./WeatherCurrentReadings";
 
 import WeatherMetricChart from "./WeatherMetricChart";
 import WeatherWindChart from "./WeatherWindChart";
-import WeatherRainChart from "./WeatherRainChart";
-import { celsiusToFahrenheit, hpaToInHg } from "../../lib/weatherUnits";
+import { celsiusToFahrenheit, hpaToInHg, mmToInches } from "../../lib/weatherUnits";
 
 // The metrics needed for the Weather view
 const WEATHER_METRICS = [
@@ -63,8 +62,9 @@ export default function WeatherView() {
   const tempM = catalog.metrics["bme688_temperature_c"];
   const humM = catalog.metrics["bme688_humidity_pct"];
   const presM = catalog.metrics["bme688_pressure_hpa"];
+  const rainM = catalog.metrics["weather_kit_rain_gauge_rain_interval_mm"];
 
-  if (!tempM || !humM || !presM) return null;
+  if (!tempM || !humM || !presM || !rainM) return null;
 
   const series = historyData ? transformQueryResponse(historyData.response) : null;
 
@@ -157,12 +157,15 @@ export default function WeatherView() {
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden md:col-span-2">
             <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-              <h3 className="text-sm font-semibold text-slate-800">Rainfall</h3>
+              <h3 className="text-sm font-semibold text-slate-800">{rainM.label}</h3>
             </div>
             <div className="px-2 pt-2 pb-4 h-[240px]">
-              <WeatherRainChart
-                intervalData={series["weather_kit_rain_gauge_rain_interval_mm"] ?? []}
+              <WeatherMetricChart
+                metric={rainM}
+                data={series["weather_kit_rain_gauge_rain_interval_mm"] ?? []}
                 window={axisWindow}
+                unit="in"
+                convertFn={mmToInches}
               />
             </div>
           </div>

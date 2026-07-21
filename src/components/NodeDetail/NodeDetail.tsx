@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Link, useParams, Navigate } from "react-router-dom";
+import { Link, useParams, Navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft, Battery, ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
 import { useFleet } from "../../hooks/useFleet";
 import { useMetadata } from "../../hooks/useMetadata";
@@ -13,6 +13,7 @@ import ChartTimeControls from "./ChartTimeControls";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
 import PairedChart from "./PairedChart";
 import NodeHealthPanel from "./NodeHealthPanel";
+import WeatherWindChart from "../WeatherView/WeatherWindChart";
 import OverlayStatusBadge from "../FleetView/OverlayStatusBadge";
 import type { ChartTimeSelection } from "../../lib/timeWindow";
 import { useFleetStaleMetrics } from "../../hooks/useFleetStaleMetrics";
@@ -28,22 +29,103 @@ import {
 import { formatSecondsSince, formatMetricValue } from "../../lib/format";
 import { degreesToCompassPoint } from "../../lib/timeWindow";
 
-// ─── Headline metric definitions ──────────────────────────────────────────────
+// ─── Key metrics layout (3-column reading order) ──────────────────────────────
+//
+// Row1: BME temp | BME humidity | Wind speed & direction
+// Row2: SCD41 temp | SCD41 humidity | Atmospheric pressure
+// Row3: CO₂ | CO | VOC resistance
+// Row4: PM2.5 | Typical particle size | VOC resistance ratio (AH-adj)
+
+type HeadlineSlot =
+  | { kind: "metric"; primary: string; paired?: string }
+  | { kind: "wind_combo" };
+
+const HEADLINE_SLOTS: HeadlineSlot[] = [
+  { kind: "metric", primary: "bme688_temperature_c" },
+  { kind: "metric", primary: "bme688_humidity_pct" },
+  { kind: "wind_combo" },
+  { kind: "metric", primary: "scd41_temp_c" },
+  { kind: "metric", primary: "scd41_humid_pct" },
+  { kind: "metric", primary: "bme688_pressure_hpa" },
+  { kind: "metric", primary: "scd41_co2_ppm", paired: "scd41_co2_ppm_max" },
+  { kind: "metric", primary: "ze03_co_ppm", paired: "ze03_co_ppm_max" },
+  { kind: "metric", primary: "bme688_gas_ohms" },
+  { kind: "metric", primary: "sps30_pm2_5", paired: "sps30_pm2_5_max" },
+  { kind: "metric", primary: "sps30_typical_size" },
+  { kind: "metric", primary: "bme688_gas_ohms_ratio_ah_adj" },
+];
+
+const WIND_COMBO_METRICS = [
+  "weather_kit_anemometer_wind_avg_ms",
+  "weather_kit_anemometer_wind_speed_ms",
+  "weather_kit_anemometer_wind_gust_ms_max",
+  "weather_kit_anemometer_wind_gust_ms",
+  "wind_vane_degrees_avg",
+  "wind_vane_degrees",
+] as const;
+
+function headlineMetricNames(): string[] {
+  const names = new Set<string>();
+  for (const slot of HEADLINE_SLOTS) {
+    if (slot.kind === "wind_combo") {
+      for (const m of WIND_COMBO_METRICS) names.add(m);
+    } else {
+      names.add(slot.primary);
+      if (slot.paired) names.add(slot.paired);
+    }
+  }
+  return [...names];
+}
+
+/** Metrics that already have a dedicated Key Metrics chart (excludes wind combo feeds). */
+function keyMetricsOccupiedNames(): Set<string> {
+  const names = new Set<string>();
+  for (const slot of HEADLINE_SLOTS) {
+    if (slot.kind === "metric") {
+      names.add(slot.primary);
+      if (slot.paired) names.add(slot.paired);
+    }
+  }
+  return names;
+}
 
 /**
- * The 5 headline metrics shown above-fold. Each entry specifies the primary
- * metric name and its optional pair. Source is always "readings" for these.
+ * Additional metrics — ordered by theme (remaining PM → VOC → wind → rain → sample count).
+ * Pair members are listed with their primary; renderAllChart skips duplicate pair renders.
  */
-const HEADLINE_METRICS: { primary: string; paired?: string }[] = [
-  { primary: "bme688_temperature_c" },
-  { primary: "bme688_humidity_pct", paired: "avg_absolute_humidity_g_m3" },
-  { primary: "bme688_gas_ohms", paired: "bme688_gas_ohms_ah_normalized" },
-  { primary: "sps30_pm2_5", paired: "sps30_pm2_5_max" },
-  { primary: "scd41_co2_ppm", paired: "scd41_co2_ppm_max" },
-  {
-    primary: "weather_kit_anemometer_wind_gust_ms_max",
-    paired: "weather_kit_anemometer_wind_gust_ms",
-  },
+const ADDITIONAL_METRICS_ORDERED: string[] = [
+  // Remaining PM
+  "sps30_pm1_0",
+  "sps30_pm1_0_max",
+  "sps30_pm4_0",
+  "sps30_pm4_0_max",
+  "sps30_pm10",
+  "sps30_pm10_max",
+  "sps30_nc0_5",
+  "sps30_nc1_0",
+  "sps30_nc2_5",
+  "sps30_nc4_0",
+  "sps30_nc10",
+  // Remaining VOC / humidity-related
+  "avg_absolute_humidity_g_m3",
+  "bme688_gas_ohms_ah_normalized",
+  "bme688_gas_ohms_ratio",
+  "bme688_gas_ohms_baseline",
+  "bme688_gas_ohms_ah_baseline",
+  "bme688_gas_ohms_log",
+  "bme688_gas_ohms_min",
+  // Remaining wind (combo lives in Key Metrics; these are the line charts)
+  "weather_kit_anemometer_wind_avg_ms",
+  "weather_kit_anemometer_wind_gust_ms_max",
+  "weather_kit_anemometer_wind_gust_ms",
+  "weather_kit_anemometer_wind_min_ms",
+  "weather_kit_anemometer_wind_speed_ms",
+  // Rain
+  "weather_kit_rain_gauge_rain_interval_mm",
+  "weather_kit_rain_gauge_rain_hourly_mm",
+  "weather_kit_rain_gauge_tips_interval",
+  // Anemometer sample count
+  "weather_kit_anemometer_sample_count",
 ];
 
 /** Envelope diagnostics shown on the node health panel instead of "Show all". */
@@ -83,15 +165,8 @@ function healthPanelTelemetryMetricNames(): string[] {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Collects all reading metric names needed for the "show all" expanded view
- * excluding the headline metrics (already fetched separately) and
- * wind_vane_degrees variants (not charted per Q5 decision).
- */
-function getAllReadingMetricNames(catalog: Catalog): string[] {
-  const headlineSet = new Set(
-    HEADLINE_METRICS.flatMap((h) => (h.paired ? [h.primary, h.paired] : [h.primary]))
-  );
+function getAdditionalReadingMetricNames(catalog: Catalog): string[] {
+  const occupied = keyMetricsOccupiedNames();
   const healthPanelSet = new Set<string>(HEALTH_PANEL_READING_CHARTS);
   const windVaneNames = new Set([
     "wind_vane_degrees",
@@ -99,16 +174,27 @@ function getAllReadingMetricNames(catalog: Catalog): string[] {
     "wind_vane_voltage",
   ]);
 
-  return Object.values(catalog.metrics)
+  const ordered = ADDITIONAL_METRICS_ORDERED.filter(
+    (name) =>
+      catalog.metrics[name] &&
+      !occupied.has(name) &&
+      !healthPanelSet.has(name) &&
+      !windVaneNames.has(name)
+  );
+
+  // Append any leftover numeric readings not in the ordered list (forward-compatible).
+  const orderedSet = new Set([...ordered, ...occupied, ...healthPanelSet, ...windVaneNames]);
+  const leftovers = Object.values(catalog.metrics)
     .filter(
       (m) =>
         m.source === "readings" &&
         m.type === "numeric" &&
-        !headlineSet.has(m.name) &&
-        !healthPanelSet.has(m.name) &&
-        !windVaneNames.has(m.name)
+        !orderedSet.has(m.name)
     )
-    .map((m) => m.name);
+    .map((m) => m.name)
+    .sort();
+
+  return [...ordered, ...leftovers];
 }
 
 // ─── Latest-state strip ───────────────────────────────────────────────────────
@@ -256,6 +342,7 @@ function ChartCard({ title, children }: ChartCardProps) {
 
 export default function NodeDetail() {
   const { nodeId } = useParams<{ nodeId: string }>();
+  const navigate = useNavigate();
   const [chartSelection, setChartSelection] = useState<ChartTimeSelection>({
     kind: "preset",
     window: "24h",
@@ -282,11 +369,7 @@ export default function NodeDetail() {
 
   // ── Headline metrics query ────────────────────────────────────────────────
 
-  const headlineMetricNames = useMemo(
-    () =>
-      HEADLINE_METRICS.flatMap((h) => (h.paired ? [h.primary, h.paired] : [h.primary])),
-    []
-  );
+  const headlineMetricNamesList = useMemo(() => headlineMetricNames(), []);
 
   const {
     data: headlineHistoryData,
@@ -297,7 +380,7 @@ export default function NodeDetail() {
   } = useNodeHistory(
     nodeId ?? "",
     "readings",
-    headlineMetricNames,
+    headlineMetricNamesList,
     chartSelection
   );
 
@@ -308,7 +391,7 @@ export default function NodeDetail() {
   // ── "Show all" additional metrics query ──────────────────────────────────
 
   const allReadingNames = useMemo(
-    () => (catalog ? getAllReadingMetricNames(catalog) : []),
+    () => (catalog ? getAdditionalReadingMetricNames(catalog) : []),
     [catalog]
   );
 
@@ -406,7 +489,7 @@ export default function NodeDetail() {
   }
 
   const node = fleet?.nodes.find((n) => n.nodeId === nodeId);
-  if (!node) {
+  if (!fleet || !node) {
     return (
       <ErrorState
         message={`Node "${nodeId}" not found`}
@@ -436,21 +519,56 @@ export default function NodeDetail() {
 
   // ── Chart rendering helpers ───────────────────────────────────────────────
 
-  function renderHeadlineChart(
-    h: { primary: string; paired?: string },
-    idx: number
-  ) {
-    const primaryMeta: MetricMetadata | undefined = cat.metrics[h.primary];
-    if (!primaryMeta) return null;
-
+  function renderHeadlineSlot(slot: HeadlineSlot, idx: number) {
     const showSkeleton = headlineChartsBusy && !headlineSeries;
 
-    if (h.paired) {
-      const pairedMeta = cat.metrics[h.paired];
+    if (slot.kind === "wind_combo") {
+      const avgData =
+        headlineSeries?.["weather_kit_anemometer_wind_avg_ms"] ??
+        headlineSeries?.["weather_kit_anemometer_wind_speed_ms"] ??
+        [];
+      const peakData =
+        headlineSeries?.["weather_kit_anemometer_wind_gust_ms_max"] ??
+        headlineSeries?.["weather_kit_anemometer_wind_gust_ms"] ??
+        [];
+      const dirData =
+        headlineSeries?.["wind_vane_degrees_avg"] ??
+        headlineSeries?.["wind_vane_degrees"] ??
+        [];
+      const hasAny = hasData(avgData) || hasData(peakData) || hasData(dirData);
+
+      return (
+        <ChartCard key={idx} title="Wind Speed & Direction">
+          {showSkeleton ? (
+            <ChartSkeleton />
+          ) : !hasAny ? (
+            <ChartEmpty
+              label="Wind"
+              detail="Try a shorter time window if the weather kit recently went offline."
+            />
+          ) : (
+            <div className="h-[220px] min-w-0">
+              <WeatherWindChart
+                avgData={avgData}
+                peakData={peakData}
+                dirData={dirData}
+                window={axisWindow}
+              />
+            </div>
+          )}
+        </ChartCard>
+      );
+    }
+
+    const primaryMeta: MetricMetadata | undefined = cat.metrics[slot.primary];
+    if (!primaryMeta) return null;
+
+    if (slot.paired) {
+      const pairedMeta = cat.metrics[slot.paired];
       if (!pairedMeta) return null;
 
-      const avgData = headlineSeries?.[h.primary] ?? [];
-      const peakData = headlineSeries?.[h.paired] ?? [];
+      const avgData = headlineSeries?.[slot.primary] ?? [];
+      const peakData = headlineSeries?.[slot.paired] ?? [];
       const hasAnyData = hasData(avgData) || hasData(peakData);
 
       return (
@@ -475,7 +593,7 @@ export default function NodeDetail() {
       );
     }
 
-    const data = headlineSeries?.[h.primary] ?? [];
+    const data = headlineSeries?.[slot.primary] ?? [];
     return (
       <ChartCard key={idx} title={primaryMeta.label}>
         {showSkeleton ? (
@@ -570,7 +688,23 @@ export default function NodeDetail() {
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Fleet view
           </Link>
-          <h1 className="text-xl font-semibold text-slate-900">{nodeId}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="sr-only" htmlFor="node-detail-selector">
+              Select node
+            </label>
+            <select
+              id="node-detail-selector"
+              value={nodeId}
+              onChange={(e) => navigate(`/nodes/${e.target.value}`)}
+              className="text-xl font-semibold text-slate-900 bg-transparent border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 max-w-full"
+            >
+              {fleet.nodes.map((n) => (
+                <option key={n.nodeId} value={n.nodeId}>
+                  {n.nodeId}
+                </option>
+              ))}
+            </select>
+          </div>
           <p className="text-sm text-slate-500 mt-0.5">Site: {node.siteId}</p>
         </div>
 
@@ -625,8 +759,8 @@ export default function NodeDetail() {
             Loading key metrics from cold storage… additional charts wait until this finishes.
           </p>
         )}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
-          {HEADLINE_METRICS.map((h, i) => renderHeadlineChart(h, i))}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+          {HEADLINE_SLOTS.map((slot, i) => renderHeadlineSlot(slot, i))}
         </div>
       </section>
 

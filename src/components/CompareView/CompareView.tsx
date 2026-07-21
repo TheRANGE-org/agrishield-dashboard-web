@@ -14,21 +14,43 @@ import ChartLoadingOverlay from "../shared/ChartLoadingOverlay";
 import { transformQueryResponse, hasData } from "../../lib/chartData";
 import type { Catalog, MetricMetadata } from "../../api/types";
 
-function getCompareMetrics(catalog: Catalog) {
-  const metrics = Object.values(catalog.metrics).filter(
+/** Telemetry health metrics exposed in Compare (battery + network). */
+const COMPARE_TELEMETRY_METRICS = [
+  "sensor_health_battery_percentage",
+  "system_health_network_latency_ms",
+  "system_health_wifi_signal_level_dbm",
+  "system_health_uplink_gateway_ok",
+  "system_health_uplink_internet_ok",
+  "system_health_tailscale_online",
+  "system_health_queue_pending_batches",
+] as const;
+
+function getCompareMetrics(catalog: Catalog): MetricMetadata[] {
+  const readings = Object.values(catalog.metrics).filter(
     (m) => m.source === "readings" && m.type === "numeric"
   );
-  
-  const subordinates = new Set(metrics.map((m) => m.pairs_with).filter(Boolean));
-  
-  return metrics
-    .filter(
-      (m) =>
-        !subordinates.has(m.name) &&
-        !m.name.includes("wind_vane_degrees") &&
-        !m.name.includes("wind_vane_voltage")
-    )
-    .sort((a, b) => a.label.localeCompare(b.label));
+
+  const subordinates = new Set(
+    readings.map((m) => m.pairs_with).filter(Boolean) as string[]
+  );
+
+  const readingPrimaries = readings.filter(
+    (m) =>
+      !subordinates.has(m.name) &&
+      // Instant heading is noisy; voltage is diagnostic-only. Avg circular mean is the fire-origin signal.
+      m.name !== "wind_vane_degrees" &&
+      !m.name.includes("wind_vane_voltage")
+  );
+
+  const telemetry: MetricMetadata[] = [];
+  for (const name of COMPARE_TELEMETRY_METRICS) {
+    const m = catalog.metrics[name];
+    if (m && m.type === "numeric") telemetry.push(m);
+  }
+
+  return [...readingPrimaries, ...telemetry].sort((a, b) =>
+    a.label.localeCompare(b.label)
+  );
 }
 
 function NodeMetricRow({
@@ -44,11 +66,12 @@ function NodeMetricRow({
   selection: ChartTimeSelection;
   axisWindow: AxisWindow;
 }) {
+  const source = metric.source === "telemetry" ? "telemetry" : "readings";
   const metricsToFetch = pairMetric ? [metric.name, pairMetric.name] : [metric.name];
-  
+
   const { data: historyData, isLoading, isValidating } = useNodeHistory(
     nodeId,
-    "readings",
+    source,
     metricsToFetch,
     selection
   );
@@ -57,8 +80,8 @@ function NodeMetricRow({
   const data = series?.[metric.name] ?? [];
   const pairData = pairMetric ? (series?.[pairMetric.name] ?? []) : [];
   const chartsBusy = isLoading || isValidating;
-  
-  const hasAny = pairMetric ? (hasData(data) || hasData(pairData)) : hasData(data);
+
+  const hasAny = pairMetric ? hasData(data) || hasData(pairData) : hasData(data);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
@@ -70,7 +93,11 @@ function NodeMetricRow({
         {chartsBusy && !series ? (
           <ChartSkeleton />
         ) : !hasAny ? (
-          <ChartEmpty label={pairMetric ? `${metric.label} / ${pairMetric.label}` : metric.label} />
+          <ChartEmpty
+            label={
+              pairMetric ? `${metric.label} / ${pairMetric.label}` : metric.label
+            }
+          />
         ) : pairMetric ? (
           <PairedChart
             avgMetric={metric}
@@ -103,11 +130,16 @@ export default function CompareView() {
 
   const compareMetrics = getCompareMetrics(catalog);
   const currentMetricName = selectedMetricName || compareMetrics[0]?.name;
-  
+
   const metric = catalog.metrics[currentMetricName];
   if (!metric) return null;
-  
-  const pairMetric = Object.values(catalog.metrics).find(m => m.pairs_with === currentMetricName);
+
+  // Prefer catalog pairs_with when the pair is also numeric (e.g. battery % ↔ V).
+  const pairName = metric.pairs_with;
+  const pairMetric =
+    pairName && catalog.metrics[pairName]?.type === "numeric"
+      ? catalog.metrics[pairName]
+      : Object.values(catalog.metrics).find((m) => m.pairs_with === currentMetricName);
 
   return (
     <div className="space-y-6">
@@ -119,8 +151,11 @@ export default function CompareView() {
             onChange={(e) => setSelectedMetricName(e.target.value)}
             className="block w-full sm:w-auto pl-3 pr-10 py-1.5 text-sm border border-slate-300 focus:outline-none focus:ring-green-500 focus:border-green-500 rounded-md"
           >
-            {compareMetrics.map(m => (
-              <option key={m.name} value={m.name}>{m.label}</option>
+            {compareMetrics.map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.label}
+                {m.source === "telemetry" ? " (health)" : ""}
+              </option>
             ))}
           </select>
           <ChartTimeControls value={chartSelection} onChange={setChartSelection} />
@@ -128,12 +163,12 @@ export default function CompareView() {
       </div>
 
       <div className="space-y-2">
-        {fleet.nodes.map(node => (
-          <NodeMetricRow 
-            key={node.nodeId} 
-            nodeId={node.nodeId} 
-            metric={metric} 
-            pairMetric={pairMetric} 
+        {fleet.nodes.map((node) => (
+          <NodeMetricRow
+            key={node.nodeId}
+            nodeId={node.nodeId}
+            metric={metric}
+            pairMetric={pairMetric}
             selection={chartSelection}
             axisWindow={axisWindow}
           />

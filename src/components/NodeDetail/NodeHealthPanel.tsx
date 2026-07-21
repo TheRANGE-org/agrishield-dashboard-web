@@ -293,9 +293,9 @@ export default function NodeHealthPanel({
     <section
       id="sensor-health"
       aria-label="Node health and telemetry"
-      className="bg-white rounded-xl border border-slate-200 shadow-sm scroll-mt-20"
+      className="bg-slate-100 rounded-xl border border-slate-300 shadow-sm scroll-mt-20 ring-1 ring-slate-200/80"
     >
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 px-4 py-3 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 px-4 py-3 border-b border-slate-200/80 bg-slate-200/40 rounded-t-xl">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
