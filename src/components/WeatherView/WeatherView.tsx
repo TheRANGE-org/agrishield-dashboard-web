@@ -12,6 +12,7 @@ import WeatherCurrentReadings from "./WeatherCurrentReadings";
 
 import WeatherMetricChart from "./WeatherMetricChart";
 import WeatherWindChart from "./WeatherWindChart";
+import WeatherRainChart from "./WeatherRainChart";
 import { celsiusToFahrenheit, hpaToInHg } from "../../lib/weatherUnits";
 
 // The metrics needed for the Weather view
@@ -26,6 +27,8 @@ const WEATHER_METRICS = [
   "weather_kit_anemometer_wind_min_ms",
   "wind_vane_degrees",
   "wind_vane_degrees_avg",
+  "weather_kit_rain_gauge_rain_interval_mm",
+  "weather_kit_rain_gauge_rain_hourly_mm",
 ];
 
 export default function WeatherView() {
@@ -142,6 +145,18 @@ export default function WeatherView() {
                 avgData={series["weather_kit_anemometer_wind_avg_ms"] ?? series["weather_kit_anemometer_wind_speed_ms"] ?? []}
                 peakData={series["weather_kit_anemometer_wind_gust_ms_max"] ?? series["weather_kit_anemometer_wind_gust_ms"] ?? []}
                 dirData={series["wind_vane_degrees_avg"] ?? series["wind_vane_degrees"] ?? []}
+                window={window}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden md:col-span-2">
+            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-sm font-semibold text-slate-800">Rainfall</h3>
+            </div>
+            <div className="px-2 pt-2 pb-4 h-[240px]">
+              <WeatherRainChart
+                intervalData={series["weather_kit_rain_gauge_rain_interval_mm"] ?? []}
                 window={window}
               />
             </div>

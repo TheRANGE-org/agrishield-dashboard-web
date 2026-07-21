@@ -10,6 +10,10 @@ export function msToMph(ms: number): number {
   return ms * 2.23694;
 }
 
+export function mmToInches(mm: number): number {
+  return mm / 25.4;
+}
+
 export function formatTempF(c: number | null | undefined): string {
   if (c == null) return "—";
   return `${celsiusToFahrenheit(c).toFixed(1)} °F`;

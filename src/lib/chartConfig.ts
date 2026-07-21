@@ -62,6 +62,8 @@ const METRIC_COLOR_OVERRIDES: Record<string, string> = {
   scd41_co2_ppm_max: "#9333ea",
   weather_kit_anemometer_wind_gust_ms_max: "#0d9488",
   weather_kit_anemometer_wind_gust_ms: "#0d9488",
+  weather_kit_rain_gauge_rain_interval_mm: "#2563eb",
+  weather_kit_rain_gauge_rain_hourly_mm: "#2563eb",
 };
 
 export function metricColor(metricName: string): string {

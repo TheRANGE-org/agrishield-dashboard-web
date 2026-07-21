@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import GaugeCard from "./GaugeCard";
-import { msToMph, getCompassDirection, celsiusToFahrenheit, hpaToInHg } from "../../lib/weatherUnits";
+import { msToMph, getCompassDirection, celsiusToFahrenheit, hpaToInHg, mmToInches } from "../../lib/weatherUnits";
 import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
 import type { MetricSeriesMap } from "../../lib/chartData";
 
@@ -39,6 +39,8 @@ export default function WeatherCurrentReadings({ series }: Props) {
     const windMinData = series["weather_kit_anemometer_wind_min_ms"] ?? [];
     const windMaxData = series["weather_kit_anemometer_wind_gust_ms_max"] ?? series["weather_kit_anemometer_wind_gust_ms"] ?? [];
     const windDirData = series["wind_vane_degrees_avg"] ?? series["wind_vane_degrees"] ?? [];
+    const rainIntervalData = series["weather_kit_rain_gauge_rain_interval_mm"] ?? [];
+    const rainHourlyData = series["weather_kit_rain_gauge_rain_hourly_mm"] ?? [];
     
     const getLatest = (arr: {value: number | null}[]) => {
       for (let i = arr.length - 1; i >= 0; i--) {
@@ -46,6 +48,15 @@ export default function WeatherCurrentReadings({ series }: Props) {
       }
       return null;
     };
+
+    let periodTotalMm = 0;
+    let hasRainInterval = false;
+    for (const d of rainIntervalData) {
+      if (typeof d.value === "number") {
+        periodTotalMm += d.value;
+        hasRainInterval = true;
+      }
+    }
     
     return {
       temp: getStats("bme688_temperature_c", celsiusToFahrenheit),
@@ -56,7 +67,11 @@ export default function WeatherCurrentReadings({ series }: Props) {
         min: getLatest(windMinData),
         peak: getLatest(windMaxData),
         dir: getLatest(windDirData)
-      }
+      },
+      rain: {
+        hourly: getLatest(rainHourlyData),
+        periodTotal: hasRainInterval ? periodTotalMm : null,
+      },
     };
   }, [series]);
 
@@ -64,9 +79,13 @@ export default function WeatherCurrentReadings({ series }: Props) {
 
   const tempPct = stats.temp.current ? ((stats.temp.current - 0) / 120) * 100 : 0;
   const humPct = stats.hum.current ? stats.hum.current : 0;
+  const rainHourlyIn =
+    stats.rain.hourly != null ? mmToInches(stats.rain.hourly) : null;
+  const rainPeriodIn =
+    stats.rain.periodTotal != null ? mmToInches(stats.rain.periodTotal) : null;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       {/* Temp */}
       <GaugeCard
         title="Temperature"
@@ -136,6 +155,29 @@ export default function WeatherCurrentReadings({ series }: Props) {
         <div className="w-full flex justify-between mt-2 px-2 text-xs font-semibold text-slate-400">
           <span>Min: {stats.wind.min != null ? Math.round(msToMph(stats.wind.min)) : "—"}</span>
           <span>Peak: {stats.wind.peak != null ? Math.round(msToMph(stats.wind.peak)) : "—"}</span>
+        </div>
+      </div>
+
+      {/* Rain */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col justify-between h-36">
+        <h3 className="text-sm font-medium text-slate-700 w-full text-left mb-1">Rainfall</h3>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="flex items-end gap-1.5">
+            <span className="text-3xl font-bold text-slate-900">
+              {rainHourlyIn != null
+                ? rainHourlyIn < 0.01 && rainHourlyIn > 0
+                  ? rainHourlyIn.toFixed(3)
+                  : rainHourlyIn.toFixed(2)
+                : "—"}
+            </span>
+            <span className="text-xs text-slate-500 font-medium mb-1.5">in / hr</span>
+          </div>
+        </div>
+        <div className="w-full text-center mt-2 text-xs font-semibold text-slate-400">
+          Window total:{" "}
+          {rainPeriodIn != null
+            ? `${rainPeriodIn < 0.01 && rainPeriodIn > 0 ? rainPeriodIn.toFixed(3) : rainPeriodIn.toFixed(2)} in`
+            : "—"}
         </div>
       </div>
     </div>
