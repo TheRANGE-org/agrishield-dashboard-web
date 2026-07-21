@@ -37,10 +37,14 @@ export interface QueryResponse {
  * Phase 4 only uses this path; NDJSON (agg=raw) is handled by apiFetchNdjson
  * in client.ts if ever needed.
  */
-export async function fetchQuery(query: QueryRequest): Promise<QueryResponse> {
+export async function fetchQuery(
+  query: QueryRequest,
+  options?: { timeoutMs?: number }
+): Promise<QueryResponse> {
   return apiFetch<QueryResponse>("/api/query", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(query),
+    timeoutMs: options?.timeoutMs,
   });
 }

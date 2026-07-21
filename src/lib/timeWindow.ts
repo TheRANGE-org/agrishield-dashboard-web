@@ -138,6 +138,17 @@ export function selectionToQueryParams(selection: ChartTimeSelection): WindowQue
   return windowToQueryParams(selection.window);
 }
 
+/** 7d / 30d / stepped-back periods hit GCS and are expensive. */
+export function selectionIsDeepHistory(selection: ChartTimeSelection): boolean {
+  if (selection.kind === "historical") return true;
+  return selection.window === "7d" || selection.window === "30d";
+}
+
+/** Longer client timeout for GCS-backed windows (p95 can exceed 15s under load). */
+export function selectionQueryTimeoutMs(selection: ChartTimeSelection): number {
+  return selectionIsDeepHistory(selection) ? 90_000 : 30_000;
+}
+
 /**
  * Maps a TimeWindow preset to the correct /api/query params.
  */

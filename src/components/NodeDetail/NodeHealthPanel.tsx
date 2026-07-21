@@ -36,6 +36,8 @@ interface NodeHealthPanelProps {
   healthPanelTelemetryChartMetrics?: string[];
   chartWindow?: TimeWindow;
   healthChartsBusy?: boolean;
+  /** Notifies parent when the panel opens/closes (for deferred chart fetches). */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 const SEVERITY_BADGE: Record<SensorHealthSeverity, string> = {
@@ -90,6 +92,7 @@ export default function NodeHealthPanel({
   healthPanelTelemetryChartMetrics = [],
   chartWindow = "24h",
   healthChartsBusy = false,
+  onExpandedChange,
 }: NodeHealthPanelProps) {
   const nowSec = Math.floor(nowMs / 1000);
   const contact = getNodeContactInfo(node, nowSec);
@@ -108,6 +111,10 @@ export default function NodeHealthPanel({
   const location = useLocation();
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    onExpandedChange?.(expanded);
+  }, [expanded, onExpandedChange]);
 
   // Collapse when opening or switching nodes; expand once for fleet deep-links.
   useEffect(() => {

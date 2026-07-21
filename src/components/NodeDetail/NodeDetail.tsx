@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
 import { ArrowLeft, Battery, ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
 import { useFleet } from "../../hooks/useFleet";
@@ -8,6 +8,7 @@ import { useTicker } from "../../hooks/useTicker";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
 import ChartLoadingOverlay from "../shared/ChartLoadingOverlay";
+import QueryLoadError from "../shared/QueryLoadError";
 import TimeWindowSelector from "./TimeWindowSelector";
 import HistoricalPeriodNav from "./HistoricalPeriodNav";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
@@ -17,7 +18,7 @@ import OverlayStatusBadge from "../FleetView/OverlayStatusBadge";
 import type { ChartTimeSelection, TimeWindow } from "../../lib/timeWindow";
 import { useFleetStaleMetrics } from "../../hooks/useFleetStaleMetrics";
 import { useRefreshNodeData } from "../../hooks/useRefreshNodeData";
-import { chartAxisWindow } from "../../lib/timeWindow";
+import { chartAxisWindow, selectionIsDeepHistory } from "../../lib/timeWindow";
 import { transformQueryResponse, hasData } from "../../lib/chartData";
 import type { FleetNode, Catalog, MetricMetadata } from "../../api/types";
 import {
@@ -259,6 +260,12 @@ export default function NodeDetail() {
   const [window, setWindow] = useState<TimeWindow>("24h");
   const [historicalPeriod, setHistoricalPeriod] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [healthExpanded, setHealthExpanded] = useState(false);
+
+  useEffect(() => {
+    setShowAll(false);
+    setHealthExpanded(false);
+  }, [nodeId]);
 
   const chartSelection = useMemo<ChartTimeSelection>(
     () =>
@@ -268,6 +275,10 @@ export default function NodeDetail() {
     [historicalPeriod, window]
   );
   const axisWindow = chartAxisWindow(chartSelection);
+  const deepHistory = selectionIsDeepHistory(chartSelection);
+  const onHealthExpandedChange = useCallback((expanded: boolean) => {
+    setHealthExpanded(expanded);
+  }, []);
 
   function handleWindowChange(next: TimeWindow) {
     setWindow(next);
@@ -302,12 +313,17 @@ export default function NodeDetail() {
     error: headlineError,
     isLoading: headlineLoading,
     isValidating: headlineValidating,
+    retry: retryHeadlines,
   } = useNodeHistory(
     nodeId ?? "",
     "readings",
     headlineMetricNames,
     chartSelection
   );
+
+  const headlinesOk = !!headlineHistoryData;
+  // Deep history: gate follow-on GCS pulls until headlines succeed (avoid stampedes on 503).
+  const followOnEnabled = !deepHistory || headlinesOk;
 
   // ── "Show all" additional metrics query ──────────────────────────────────
 
@@ -318,35 +334,50 @@ export default function NodeDetail() {
 
   const {
     data: allHistoryData,
+    error: allError,
     isLoading: allLoading,
     isValidating: allValidating,
+    retry: retryAll,
   } = useNodeHistory(
     nodeId ?? "",
     "readings",
     allReadingNames,
-    chartSelection
+    chartSelection,
+    { enabled: showAll && followOnEnabled }
   );
 
   const {
     data: healthPanelHistoryData,
+    error: healthReadingsError,
     isLoading: healthPanelLoading,
     isValidating: healthPanelValidating,
+    retry: retryHealthReadings,
   } = useNodeHistory(
     nodeId ?? "",
     "readings",
     [...HEALTH_PANEL_READING_CHARTS],
-    chartSelection
+    chartSelection,
+    { enabled: healthExpanded && followOnEnabled }
   );
 
   const {
     data: healthPanelTelemetryData,
+    error: healthTelemetryError,
     isLoading: healthPanelTelemetryLoading,
     isValidating: healthPanelTelemetryValidating,
+    retry: retryHealthTelemetry,
   } = useNodeHistory(
     nodeId ?? "",
     "telemetry",
     healthPanelTelemetryMetricNames(),
-    chartSelection
+    chartSelection,
+    {
+      // On deep history, wait for readings health query to settle before telemetry.
+      enabled:
+        healthExpanded &&
+        followOnEnabled &&
+        (!deepHistory || (!healthPanelLoading && !healthPanelValidating && !!healthPanelHistoryData)),
+    }
   );
 
   const headlineChartsBusy = headlineLoading || headlineValidating;
@@ -367,6 +398,20 @@ export default function NodeDetail() {
       : {};
     return { ...readings, ...telemetry };
   }, [healthPanelHistoryData, healthPanelTelemetryData]);
+
+  const healthQueryError = healthReadingsError ?? healthTelemetryError;
+
+  async function retryHeadlinesSection() {
+    await retryHeadlines();
+  }
+
+  async function retryHealthSection() {
+    await Promise.all([retryHealthReadings(), retryHealthTelemetry()]);
+  }
+
+  async function retryAllSection() {
+    await retryAll();
+  }
 
   // ─── Guards ────────────────────────────────────────────────────────────────
 
@@ -564,6 +609,13 @@ export default function NodeDetail() {
       <LatestStrip node={node} nowMs={nowMs} catalog={catalog} />
 
       {/* ── Node health & telemetry (collapsed by default) ─────────────────── */}
+      {healthExpanded && healthQueryError && (
+        <QueryLoadError
+          error={healthQueryError}
+          onRetry={() => void retryHealthSection()}
+          isRetrying={healthPanelChartsBusy}
+        />
+      )}
       <NodeHealthPanel
         node={node}
         catalog={cat}
@@ -578,6 +630,7 @@ export default function NodeDetail() {
         healthPanelReadingChartMetrics={[...HEALTH_PANEL_READING_CHARTS]}
         chartWindow={axisWindow}
         healthChartsBusy={healthPanelChartsBusy}
+        onExpandedChange={onHealthExpandedChange}
       />
 
       {/* ── Headline charts ───────────────────────────────────────────────── */}
@@ -587,9 +640,16 @@ export default function NodeDetail() {
           Key metrics
         </h2>
         {headlineError && (
-          <div className="text-sm text-red-600 mb-3">
-            Unable to load chart data: {headlineError.message}
-          </div>
+          <QueryLoadError
+            error={headlineError}
+            onRetry={() => void retryHeadlinesSection()}
+            isRetrying={headlineChartsBusy}
+          />
+        )}
+        {deepHistory && headlineChartsBusy && !headlineSeries && (
+          <p className="text-xs text-slate-500 mb-3">
+            Loading key metrics from cold storage… additional charts wait until this finishes.
+          </p>
         )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
           {HEADLINE_METRICS.map((h, i) => renderHeadlineChart(h, i))}
@@ -616,6 +676,18 @@ export default function NodeDetail() {
         {showAll && (
           <div className="relative mt-4">
             <ChartLoadingOverlay active={allChartsBusy} />
+            {allError && (
+              <QueryLoadError
+                error={allError}
+                onRetry={() => void retryAllSection()}
+                isRetrying={allChartsBusy}
+              />
+            )}
+            {deepHistory && !followOnEnabled && (
+              <p className="text-xs text-slate-500 mb-3">
+                Waiting for key metrics to load before fetching additional charts…
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
             {allReadingNames.map((name, i) => renderAllChart(name, i))}
             </div>
