@@ -10,7 +10,7 @@ import {
 import type { MetricMetadata } from "../../api/types";
 import type { DataPoint } from "../../lib/chartData";
 import { formatPartialDataNote, seriesCoverage } from "../../lib/chartData";
-import type { TimeWindow } from "../../lib/timeWindow";
+import type { AxisWindow } from "../../lib/timeWindow";
 import { formatTimeForWindow, formatTooltipTime } from "../../lib/timeWindow";
 import { referenceRangeColor, metricColor } from "../../lib/chartConfig";
 import { useContainerSize } from "../../hooks/useContainerSize";
@@ -19,7 +19,7 @@ import PartialDataNote from "../shared/PartialDataNote";
 interface Props {
   metric: MetricMetadata;
   data: DataPoint[];
-  window: TimeWindow;
+  window: AxisWindow;
 }
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ interface TooltipPayloadItem {
 interface CustomTooltipProps {
   active?: boolean;
   payload?: TooltipPayloadItem[];
-  window: TimeWindow;
+  window: AxisWindow;
   metric: MetricMetadata;
 }
 
@@ -60,7 +60,7 @@ function CustomTooltip({ active, payload, window, metric }: CustomTooltipProps) 
 
 // ─── Tick formatter ───────────────────────────────────────────────────────────
 
-function makeTickFormatter(window: TimeWindow) {
+function makeTickFormatter(window: AxisWindow) {
   return (ts: number) => formatTimeForWindow(ts, window);
 }
 

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useFleet } from "../../hooks/useFleet";
 import { useMetadata } from "../../hooks/useMetadata";
 import { useNodeHistory } from "../../hooks/useNodeHistory";
-import type { TimeWindow } from "../../lib/timeWindow";
-import TimeWindowSelector from "../NodeDetail/TimeWindowSelector";
+import type { ChartTimeSelection } from "../../lib/timeWindow";
+import { chartAxisWindow } from "../../lib/timeWindow";
+import ChartTimeControls from "../NodeDetail/ChartTimeControls";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
 import ChartLoadingOverlay from "../shared/ChartLoadingOverlay";
@@ -34,7 +35,11 @@ const WEATHER_METRICS = [
 export default function WeatherView() {
   const { fleet, isLoading: fleetLoading, error: fleetError } = useFleet();
   const { catalog, isLoading: catalogLoading } = useMetadata();
-  const [window, setWindow] = useState<TimeWindow>("24h");
+  const [chartSelection, setChartSelection] = useState<ChartTimeSelection>({
+    kind: "preset",
+    window: "24h",
+  });
+  const axisWindow = chartAxisWindow(chartSelection);
   
   // Default to first node
   const defaultNode = fleet?.nodes[0]?.nodeId;
@@ -46,7 +51,7 @@ export default function WeatherView() {
     activeNodeId,
     "readings",
     WEATHER_METRICS,
-    { kind: "preset", window }
+    chartSelection
   );
 
   const historyBusy = historyLoading || historyValidating;
@@ -77,7 +82,7 @@ export default function WeatherView() {
               <option key={n.nodeId} value={n.nodeId}>{n.nodeId}</option>
             ))}
           </select>
-          <TimeWindowSelector value={window} onChange={setWindow} />
+          <ChartTimeControls value={chartSelection} onChange={setChartSelection} />
         </div>
       </div>
 
@@ -99,7 +104,7 @@ export default function WeatherView() {
               <WeatherMetricChart
                 metric={tempM}
                 data={series["bme688_temperature_c"] ?? []}
-                window={window}
+                window={axisWindow}
                 unit="°F"
                 convertFn={celsiusToFahrenheit}
               />
@@ -114,7 +119,7 @@ export default function WeatherView() {
               <WeatherMetricChart
                 metric={humM}
                 data={series["bme688_humidity_pct"] ?? []}
-                window={window}
+                window={axisWindow}
                 unit="%"
                 convertFn={(v) => v}
               />
@@ -129,7 +134,7 @@ export default function WeatherView() {
               <WeatherMetricChart
                 metric={presM}
                 data={series["bme688_pressure_hpa"] ?? []}
-                window={window}
+                window={axisWindow}
                 unit="inHg"
                 convertFn={hpaToInHg}
               />
@@ -145,7 +150,7 @@ export default function WeatherView() {
                 avgData={series["weather_kit_anemometer_wind_avg_ms"] ?? series["weather_kit_anemometer_wind_speed_ms"] ?? []}
                 peakData={series["weather_kit_anemometer_wind_gust_ms_max"] ?? series["weather_kit_anemometer_wind_gust_ms"] ?? []}
                 dirData={series["wind_vane_degrees_avg"] ?? series["wind_vane_degrees"] ?? []}
-                window={window}
+                window={axisWindow}
               />
             </div>
           </div>
@@ -157,7 +162,7 @@ export default function WeatherView() {
             <div className="px-2 pt-2 pb-4 h-[240px]">
               <WeatherRainChart
                 intervalData={series["weather_kit_rain_gauge_rain_interval_mm"] ?? []}
-                window={window}
+                window={axisWindow}
               />
             </div>
           </div>

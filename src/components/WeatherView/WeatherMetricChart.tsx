@@ -1,12 +1,12 @@
 import MetricChart from "../NodeDetail/MetricChart";
 import type { MetricMetadata } from "../../api/types";
 import type { DataPoint } from "../../lib/chartData";
-import type { TimeWindow } from "../../lib/timeWindow";
+import type { AxisWindow } from "../../lib/timeWindow";
 
 interface Props {
   metric: MetricMetadata;
   data: DataPoint[];
-  window: TimeWindow;
+  window: AxisWindow;
   unit: string;
   convertFn: (val: number) => number;
 }

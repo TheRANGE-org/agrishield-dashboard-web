@@ -94,8 +94,8 @@ describe("formatTimeForWindow", () => {
     expect(result).not.toMatch(/^\d{2}:\d{2}$/);
   });
 
-  it("returns month+day format for 30d window", () => {
-    const result = formatTimeForWindow(TS, "30d");
+  it("returns month+day format for multi-day axis style", () => {
+    const result = formatTimeForWindow(TS, "7d");
     expect(result).toMatch(/\w+ \d+/);
   });
 

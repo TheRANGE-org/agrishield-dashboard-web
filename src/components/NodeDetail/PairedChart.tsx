@@ -11,7 +11,7 @@ import {
 import type { MetricMetadata } from "../../api/types";
 import type { DataPoint } from "../../lib/chartData";
 import { partialDataNoteForSeries } from "../../lib/chartData";
-import type { TimeWindow } from "../../lib/timeWindow";
+import type { AxisWindow } from "../../lib/timeWindow";
 import { formatTimeForWindow, formatTooltipTime } from "../../lib/timeWindow";
 import { referenceRangeColor, metricColor } from "../../lib/chartConfig";
 import { useContainerSize } from "../../hooks/useContainerSize";
@@ -24,7 +24,7 @@ interface Props {
   peakMetric: MetricMetadata;
   avgData: DataPoint[];
   peakData: DataPoint[];
-  window: TimeWindow;
+  window: AxisWindow;
 }
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ interface CustomTooltipProps {
   active?: boolean;
   payload?: TooltipPayloadItem[];
   label?: number;
-  window: TimeWindow;
+  window: AxisWindow;
   avgMetric: MetricMetadata;
   peakMetric: MetricMetadata;
 }

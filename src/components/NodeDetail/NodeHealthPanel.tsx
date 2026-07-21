@@ -16,7 +16,7 @@ import {
 import { formatAgeSecondsAgo, formatSecondsSince } from "../../lib/format";
 import type { MetricSeriesMap } from "../../lib/chartData";
 import { hasData } from "../../lib/chartData";
-import type { TimeWindow } from "../../lib/timeWindow";
+import type { AxisWindow } from "../../lib/timeWindow";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
 import PairedChart from "./PairedChart";
 import OverlayStatusBadge from "../FleetView/OverlayStatusBadge";
@@ -34,7 +34,7 @@ interface NodeHealthPanelProps {
   healthPanelConnectivityChartMetrics?: string[];
   healthPanelReadingChartMetrics?: string[];
   healthPanelTelemetryChartMetrics?: string[];
-  chartWindow?: TimeWindow;
+  chartWindow?: AxisWindow;
   healthChartsBusy?: boolean;
   /** Notifies parent when the panel opens/closes (for deferred chart fetches). */
   onExpandedChange?: (expanded: boolean) => void;

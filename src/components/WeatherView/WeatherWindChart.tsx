@@ -8,7 +8,7 @@ import {
   Legend,
 } from "recharts";
 import type { DataPoint } from "../../lib/chartData";
-import type { TimeWindow } from "../../lib/timeWindow";
+import type { AxisWindow } from "../../lib/timeWindow";
 import { formatTimeForWindow, formatTooltipTime } from "../../lib/timeWindow";
 import { msToMph, getCompassDirection } from "../../lib/weatherUnits";
 import { useContainerSize } from "../../hooks/useContainerSize";
@@ -18,7 +18,7 @@ interface Props {
   avgData: DataPoint[];
   peakData: DataPoint[];
   dirData: DataPoint[];
-  window: TimeWindow;
+  window: AxisWindow;
 }
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ interface CustomTooltipProps {
   active?: boolean;
   payload?: TooltipPayloadItem[];
   label?: number;
-  window: TimeWindow;
+  window: AxisWindow;
 }
 
 function CustomTooltip({ active, payload, label, window }: CustomTooltipProps) {

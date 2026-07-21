@@ -7,7 +7,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import type { DataPoint } from "../../lib/chartData";
-import type { TimeWindow } from "../../lib/timeWindow";
+import type { AxisWindow } from "../../lib/timeWindow";
 import { formatTimeForWindow, formatTooltipTime } from "../../lib/timeWindow";
 import { mmToInches } from "../../lib/weatherUnits";
 import { useContainerSize } from "../../hooks/useContainerSize";
@@ -15,7 +15,7 @@ import { ChartEmpty } from "../NodeDetail/MetricChart";
 
 interface Props {
   intervalData: DataPoint[];
-  window: TimeWindow;
+  window: AxisWindow;
 }
 
 const RAIN_COLOR = "#2563eb"; // blue-600
@@ -28,7 +28,7 @@ interface TooltipPayloadItem {
 interface CustomTooltipProps {
   active?: boolean;
   payload?: TooltipPayloadItem[];
-  window: TimeWindow;
+  window: AxisWindow;
 }
 
 function CustomTooltip({ active, payload, window }: CustomTooltipProps) {

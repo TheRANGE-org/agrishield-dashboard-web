@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useFleet } from "../../hooks/useFleet";
 import { useMetadata } from "../../hooks/useMetadata";
 import { useNodeHistory } from "../../hooks/useNodeHistory";
-import type { TimeWindow } from "../../lib/timeWindow";
-import TimeWindowSelector from "../NodeDetail/TimeWindowSelector";
+import type { AxisWindow, ChartTimeSelection } from "../../lib/timeWindow";
+import { chartAxisWindow } from "../../lib/timeWindow";
+import ChartTimeControls from "../NodeDetail/ChartTimeControls";
 import MetricChart from "../NodeDetail/MetricChart";
 import { ChartSkeleton, ChartEmpty } from "../NodeDetail/MetricChart";
 import PairedChart from "../NodeDetail/PairedChart";
@@ -34,12 +35,14 @@ function NodeMetricRow({
   nodeId,
   metric,
   pairMetric,
-  window
+  selection,
+  axisWindow,
 }: {
   nodeId: string;
   metric: MetricMetadata;
   pairMetric?: MetricMetadata;
-  window: TimeWindow;
+  selection: ChartTimeSelection;
+  axisWindow: AxisWindow;
 }) {
   const metricsToFetch = pairMetric ? [metric.name, pairMetric.name] : [metric.name];
   
@@ -47,7 +50,7 @@ function NodeMetricRow({
     nodeId,
     "readings",
     metricsToFetch,
-    { kind: "preset", window }
+    selection
   );
 
   const series = historyData ? transformQueryResponse(historyData.response) : null;
@@ -74,10 +77,10 @@ function NodeMetricRow({
             peakMetric={pairMetric}
             avgData={data}
             peakData={pairData}
-            window={window}
+            window={axisWindow}
           />
         ) : (
-          <MetricChart metric={metric} data={data} window={window} />
+          <MetricChart metric={metric} data={data} window={axisWindow} />
         )}
       </div>
     </div>
@@ -87,8 +90,12 @@ function NodeMetricRow({
 export default function CompareView() {
   const { fleet, isLoading: fleetLoading, error: fleetError } = useFleet();
   const { catalog, isLoading: catalogLoading } = useMetadata();
-  const [window, setWindow] = useState<TimeWindow>("24h");
+  const [chartSelection, setChartSelection] = useState<ChartTimeSelection>({
+    kind: "preset",
+    window: "24h",
+  });
   const [selectedMetricName, setSelectedMetricName] = useState<string>("");
+  const axisWindow = chartAxisWindow(chartSelection);
 
   if (fleetLoading || catalogLoading) return <LoadingState message="Loading..." />;
   if (fleetError) return <ErrorState message="Error" detail={fleetError.message} />;
@@ -116,7 +123,7 @@ export default function CompareView() {
               <option key={m.name} value={m.name}>{m.label}</option>
             ))}
           </select>
-          <TimeWindowSelector value={window} onChange={setWindow} />
+          <ChartTimeControls value={chartSelection} onChange={setChartSelection} />
         </div>
       </div>
 
@@ -127,7 +134,8 @@ export default function CompareView() {
             nodeId={node.nodeId} 
             metric={metric} 
             pairMetric={pairMetric} 
-            window={window} 
+            selection={chartSelection}
+            axisWindow={axisWindow}
           />
         ))}
       </div>
