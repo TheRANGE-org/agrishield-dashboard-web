@@ -58,6 +58,8 @@ export const HEALTH_PANEL_POWER_PAIR = {
 /** Connectivity telemetry charts on the health panel. */
 const HEALTH_PANEL_CONNECTIVITY_CHARTS = [
   "system_health_network_latency_ms",
+  "system_health_uplink_gateway_ok",
+  "system_health_uplink_internet_ok",
   "system_health_wifi_signal_level_dbm",
   "system_health_tailscale_online",
 ] as const;
