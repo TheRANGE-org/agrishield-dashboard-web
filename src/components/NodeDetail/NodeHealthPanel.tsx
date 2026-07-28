@@ -16,9 +16,11 @@ import {
 import { formatAgeSecondsAgo, formatSecondsSince } from "../../lib/format";
 import type { MetricSeriesMap } from "../../lib/chartData";
 import { hasData } from "../../lib/chartData";
+import type { DataPoint } from "../../lib/chartData";
 import type { AxisWindow } from "../../lib/timeWindow";
 import MetricChart, { ChartSkeleton, ChartEmpty } from "./MetricChart";
 import PairedChart from "./PairedChart";
+import MonthToDateBytesChart from "./MonthToDateBytesChart";
 import OverlayStatusBadge from "../FleetView/OverlayStatusBadge";
 import TelemetryPanel from "./TelemetryPanel";
 
@@ -32,10 +34,14 @@ interface NodeHealthPanelProps {
   healthPanelSeries?: MetricSeriesMap | null;
   healthPanelPowerPair?: { primary: string; paired: string };
   healthPanelConnectivityChartMetrics?: string[];
+  healthPanelStorageChartMetrics?: string[];
   healthPanelReadingChartMetrics?: string[];
   healthPanelTelemetryChartMetrics?: string[];
   chartWindow?: AxisWindow;
   healthChartsBusy?: boolean;
+  mtdBytesSeries?: DataPoint[] | null;
+  mtdBytesMonthLabel?: string;
+  mtdBytesBusy?: boolean;
   /** Notifies parent when the panel opens/closes (for deferred chart fetches). */
   onExpandedChange?: (expanded: boolean) => void;
 }
@@ -88,10 +94,14 @@ export default function NodeHealthPanel({
   healthPanelSeries = null,
   healthPanelPowerPair,
   healthPanelConnectivityChartMetrics = [],
+  healthPanelStorageChartMetrics = [],
   healthPanelReadingChartMetrics = [],
   healthPanelTelemetryChartMetrics = [],
   chartWindow = "24h",
   healthChartsBusy = false,
+  mtdBytesSeries = null,
+  mtdBytesMonthLabel,
+  mtdBytesBusy = false,
   onExpandedChange,
 }: NodeHealthPanelProps) {
   const nowSec = Math.floor(nowMs / 1000);
@@ -488,6 +498,34 @@ export default function NodeHealthPanel({
         healthPanelConnectivityChartMetrics,
         "No telemetry in the selected time window."
       )}
+
+      {renderMetricCharts(
+        "Storage",
+        healthPanelStorageChartMetrics,
+        "No telemetry in the selected time window."
+      )}
+
+      <div className="mb-4">
+        <h3 className="text-xs font-semibold text-slate-600 mb-2">
+          Upload volume (month to date)
+        </h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 [&>*]:min-w-0">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden md:col-span-2">
+            <div className="px-3 pt-2 pb-1">
+              <h4 className="text-xs font-medium text-slate-700">
+                Cumulative bytes sent
+              </h4>
+            </div>
+            <div className="px-1 pb-2">
+              <MonthToDateBytesChart
+                data={mtdBytesSeries ?? []}
+                monthLabel={mtdBytesMonthLabel ?? "This month"}
+                busy={mtdBytesBusy}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {renderMetricCharts(
         "Upload queue",

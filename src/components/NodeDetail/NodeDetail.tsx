@@ -4,6 +4,7 @@ import { ArrowLeft, Battery, ArrowUp, ChevronDown, ChevronUp } from "lucide-reac
 import { useFleet } from "../../hooks/useFleet";
 import { useMetadata } from "../../hooks/useMetadata";
 import { useNodeHistory } from "../../hooks/useNodeHistory";
+import { useMonthToDateBytes } from "../../hooks/useMonthToDateBytes";
 import { useTicker } from "../../hooks/useTicker";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
@@ -146,9 +147,15 @@ const HEALTH_PANEL_CONNECTIVITY_CHARTS = [
   "system_health_tailscale_online",
 ] as const;
 
+/** Storage telemetry chart on the health panel. */
+const HEALTH_PANEL_STORAGE_CHARTS = [
+  "system_health_disk_usage_percent",
+] as const;
+
 /** Telemetry metrics charted on the node health panel (upload queue, etc.). */
 const HEALTH_PANEL_TELEMETRY_CHARTS = [
   ...HEALTH_PANEL_CONNECTIVITY_CHARTS,
+  ...HEALTH_PANEL_STORAGE_CHARTS,
   "system_health_queue_pending_batches",
 ] as const;
 
@@ -451,6 +458,18 @@ export default function NodeDetail() {
     healthPanelTelemetryLoading ||
     healthPanelTelemetryValidating;
 
+  const {
+    data: mtdBytesData,
+    error: mtdBytesError,
+    isLoading: mtdBytesLoading,
+    isValidating: mtdBytesValidating,
+    retry: retryMtdBytes,
+  } = useMonthToDateBytes(nodeId ?? "", {
+    enabled: healthExpanded && followOnEnabled,
+  });
+
+  const mtdBytesBusy = mtdBytesLoading || mtdBytesValidating;
+
   const healthPanelSeries = useMemo(() => {
     if (!healthPanelHistoryData && !healthPanelTelemetryData) return null;
     const readings = healthPanelHistoryData
@@ -462,14 +481,19 @@ export default function NodeDetail() {
     return { ...readings, ...telemetry };
   }, [healthPanelHistoryData, healthPanelTelemetryData]);
 
-  const healthQueryError = healthReadingsError ?? healthTelemetryError;
+  const healthQueryError =
+    healthReadingsError ?? healthTelemetryError ?? mtdBytesError;
 
   async function retryHeadlinesSection() {
     await retryHeadlines();
   }
 
   async function retryHealthSection() {
-    await Promise.all([retryHealthReadings(), retryHealthTelemetry()]);
+    await Promise.all([
+      retryHealthReadings(),
+      retryHealthTelemetry(),
+      retryMtdBytes(),
+    ]);
   }
 
   async function retryAllSection() {
@@ -721,7 +745,7 @@ export default function NodeDetail() {
         <QueryLoadError
           error={healthQueryError}
           onRetry={() => void retryHealthSection()}
-          isRetrying={healthPanelChartsBusy}
+          isRetrying={healthPanelChartsBusy || mtdBytesBusy}
         />
       )}
       <NodeHealthPanel
@@ -734,10 +758,14 @@ export default function NodeDetail() {
         healthPanelSeries={healthPanelSeries}
         healthPanelPowerPair={HEALTH_PANEL_POWER_PAIR}
         healthPanelConnectivityChartMetrics={[...HEALTH_PANEL_CONNECTIVITY_CHARTS]}
+        healthPanelStorageChartMetrics={[...HEALTH_PANEL_STORAGE_CHARTS]}
         healthPanelTelemetryChartMetrics={["system_health_queue_pending_batches"]}
         healthPanelReadingChartMetrics={[...HEALTH_PANEL_READING_CHARTS]}
         chartWindow={axisWindow}
         healthChartsBusy={healthPanelChartsBusy}
+        mtdBytesSeries={mtdBytesData?.series ?? null}
+        mtdBytesMonthLabel={mtdBytesData?.monthLabel}
+        mtdBytesBusy={mtdBytesBusy}
         onExpandedChange={onHealthExpandedChange}
       />
 

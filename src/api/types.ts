@@ -5,6 +5,8 @@ export interface MetricMetadata {
   label: string;
   unit: string | null;
   source: "readings" | "telemetry";
+  /** When present, metric may be queried under any listed source. */
+  sources?: Array<"readings" | "telemetry">;
   type: "numeric" | "string" | "boolean";
   default_agg:
     | "raw"
