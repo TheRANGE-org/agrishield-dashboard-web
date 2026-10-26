@@ -36,7 +36,7 @@ A read-only web dashboard for TheRANGE Foundation board members and funding part
 
 ### Prerequisites
 
-- Node 20+
+- Node 22+
 - pnpm (`npm install -g pnpm`)
 
 ### Setup
