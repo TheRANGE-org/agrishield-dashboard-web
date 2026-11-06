@@ -28,6 +28,7 @@ import {
   batteryStatusColor,
 } from "../../lib/status";
 import { formatSecondsSince, formatMetricValue } from "../../lib/format";
+import { isLabMode } from "../../lib/deploymentMode";
 import { degreesToCompassPoint } from "../../lib/timeWindow";
 
 // ─── Key metrics layout (3-column reading order) ──────────────────────────────
@@ -729,7 +730,17 @@ export default function NodeDetail() {
               ))}
             </select>
           </div>
-          <p className="text-sm text-slate-500 mt-0.5">Site: {node.siteId}</p>
+          <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+            <span>Site: {node.siteId}</span>
+            {isLabMode(node) && (
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-200 text-yellow-950 ring-1 ring-yellow-400"
+                aria-label="Deployment mode: Lab"
+              >
+                Lab
+              </span>
+            )}
+          </p>
         </div>
 
         <div className="flex flex-col items-end gap-2">

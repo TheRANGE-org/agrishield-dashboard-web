@@ -15,6 +15,7 @@ import {
 } from "../../lib/status";
 import { isSensorLabelStale } from "../../lib/staleReadings";
 import { formatCoordinates, formatSecondsSince, formatUptime } from "../../lib/format";
+import { isLabMode } from "../../lib/deploymentMode";
 import StatusBadge from "./StatusBadge";
 import OverlayStatusBadge from "./OverlayStatusBadge";
 import BatteryIndicator from "./BatteryIndicator";
@@ -109,8 +110,12 @@ export default function NodeTile({
   const co2 = readingValues["scd41_co2_ppm"];
   const coordsLabel = formatCoordinates(node.latitude, node.longitude);
   const hasCoords = coordsLabel !== null;
+  const labMode = isLabMode(node);
 
-  const borderClass = STATUS_BG[liveStatus] ?? STATUS_BG.live;
+  const borderClass =
+    labMode && liveStatus === "live"
+      ? "bg-yellow-50 border-yellow-400"
+      : (STATUS_BG[liveStatus] ?? STATUS_BG.live);
 
   return (
     <Link
@@ -123,11 +128,24 @@ export default function NodeTile({
     >
     <article>
       {/* ── Top bar ──────────────────────────────────────────────── */}
-      <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-2">
+      <div
+        className={[
+          "px-4 pt-4 pb-3 flex items-start justify-between gap-2",
+          labMode ? "bg-yellow-200" : "",
+        ].join(" ")}
+      >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <StatusBadge status={liveStatus} channel="data" />
             <OverlayStatusBadge overlay={node.overlay} nowMs={nowMs} />
+            {labMode && (
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-400 text-yellow-950 ring-1 ring-yellow-500"
+                aria-label="Deployment mode: Lab"
+              >
+                Lab
+              </span>
+            )}
           </div>
           {pathMismatchNote && (
             <p className="mt-1.5 text-[11px] text-amber-800 leading-snug max-w-[16rem]">
