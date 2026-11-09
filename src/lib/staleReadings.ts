@@ -1,9 +1,11 @@
 import type { QueryResponse } from "../api/query";
+import { MHZ19E_CO2_PPM, SCD41_CO2_PPM } from "./co2Reading";
 
 /** Metrics checked for flat-line / stale readings on fleet tiles. */
 export const FLEET_STALE_METRICS = [
   { metric: "sps30_pm2_5", sensorLabel: "SPS30", tileLabel: "PM 2.5" },
-  { metric: "scd41_co2_ppm", sensorLabel: "SCD41", tileLabel: "CO₂" },
+  { metric: SCD41_CO2_PPM, sensorLabel: "SCD41", tileLabel: "CO₂" },
+  { metric: MHZ19E_CO2_PPM, sensorLabel: "MH-Z19E", tileLabel: "CO₂" },
 ] as const;
 
 /** Consecutive minute buckets with the same value → stale. */

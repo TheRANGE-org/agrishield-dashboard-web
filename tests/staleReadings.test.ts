@@ -20,6 +20,22 @@ describe("staleSensorLabelsByNode", () => {
     expect(byNode.get("node-01")?.has("SCD41")).toBe(false);
   });
 
+  it("flags MH-Z19E when its CO₂ reading is flat and SCD41 is absent", () => {
+    const response: QueryResponse = {
+      query: {},
+      ts_unit: "seconds",
+      columns: ["ts", "nodeId", "siteId", "mhz19e_co2_ppm"],
+      rows: [
+        [1000, "node-08", "wildcat", 428],
+        [1060, "node-08", "wildcat", 428],
+        [1120, "node-08", "wildcat", 428],
+      ],
+    };
+    const byNode = staleSensorLabelsByNode(response);
+    expect(byNode.get("node-08")?.has("MH-Z19E")).toBe(true);
+    expect(byNode.get("node-08")?.has("SCD41")).toBeFalsy();
+  });
+
   it("does not flag when values are still changing", () => {
     const response: QueryResponse = {
       query: {},

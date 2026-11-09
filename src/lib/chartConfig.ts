@@ -60,6 +60,8 @@ const METRIC_COLOR_OVERRIDES: Record<string, string> = {
   sps30_pm2_5_max: "#dc2626",
   scd41_co2_ppm: "#9333ea",
   scd41_co2_ppm_max: "#9333ea",
+  mhz19e_co2_ppm: "#9333ea",
+  mhz19e_co2_ppm_max: "#9333ea",
   weather_kit_anemometer_wind_gust_ms_max: "#0d9488",
   weather_kit_anemometer_wind_gust_ms: "#0d9488",
   weather_kit_rain_gauge_rain_interval_mm: "#2563eb",

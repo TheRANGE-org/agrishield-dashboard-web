@@ -30,6 +30,13 @@ import {
 import { formatSecondsSince, formatMetricValue } from "../../lib/format";
 import { isLabMode } from "../../lib/deploymentMode";
 import { degreesToCompassPoint } from "../../lib/timeWindow";
+import {
+  MHZ19E_CO2_PPM,
+  MHZ19E_CO2_PPM_MAX,
+  SCD41_CO2_PPM,
+  SCD41_CO2_PPM_MAX,
+  selectCo2Reading,
+} from "../../lib/co2Reading";
 
 // ─── Key metrics layout (3-column reading order) ──────────────────────────────
 //
@@ -39,7 +46,14 @@ import { degreesToCompassPoint } from "../../lib/timeWindow";
 // Row4: PM2.5 | Typical particle size | VOC resistance ratio (AH-adj)
 
 type HeadlineSlot =
-  | { kind: "metric"; primary: string; paired?: string }
+  | {
+      kind: "metric";
+      primary: string;
+      paired?: string;
+      /** Used when the primary reading is absent on this node. */
+      fallbackPrimary?: string;
+      fallbackPaired?: string;
+    }
   | { kind: "wind_combo" };
 
 const HEADLINE_SLOTS: HeadlineSlot[] = [
@@ -49,7 +63,13 @@ const HEADLINE_SLOTS: HeadlineSlot[] = [
   { kind: "metric", primary: "scd41_temp_c" },
   { kind: "metric", primary: "scd41_humid_pct" },
   { kind: "metric", primary: "bme688_pressure_hpa" },
-  { kind: "metric", primary: "scd41_co2_ppm", paired: "scd41_co2_ppm_max" },
+  {
+    kind: "metric",
+    primary: SCD41_CO2_PPM,
+    paired: SCD41_CO2_PPM_MAX,
+    fallbackPrimary: MHZ19E_CO2_PPM,
+    fallbackPaired: MHZ19E_CO2_PPM_MAX,
+  },
   { kind: "metric", primary: "ze03_co_ppm", paired: "ze03_co_ppm_max" },
   { kind: "metric", primary: "bme688_gas_ohms" },
   { kind: "metric", primary: "sps30_pm2_5", paired: "sps30_pm2_5_max" },
@@ -74,6 +94,8 @@ function headlineMetricNames(): string[] {
     } else {
       names.add(slot.primary);
       if (slot.paired) names.add(slot.paired);
+      if (slot.fallbackPrimary) names.add(slot.fallbackPrimary);
+      if (slot.fallbackPaired) names.add(slot.fallbackPaired);
     }
   }
   return [...names];
@@ -86,6 +108,8 @@ function keyMetricsOccupiedNames(): Set<string> {
     if (slot.kind === "metric") {
       names.add(slot.primary);
       if (slot.paired) names.add(slot.paired);
+      if (slot.fallbackPrimary) names.add(slot.fallbackPrimary);
+      if (slot.fallbackPaired) names.add(slot.fallbackPaired);
     }
   }
   return names;
@@ -372,12 +396,21 @@ export default function NodeDetail() {
   const { fleet, isLoading: fleetLoading, error: fleetError } = useFleet();
   const { catalog, isLoading: catalogLoading } = useMetadata();
   const nowMs = useTicker(1000);
-  const { staleByNode } = useFleetStaleMetrics(nodeId ? [nodeId] : []);
+  const { staleByNode } = useFleetStaleMetrics(nodeId ? [nodeId] : [], {
+    includeMhz: !!catalog?.metrics[MHZ19E_CO2_PPM],
+  });
   const { refresh, isRefreshing } = useRefreshNodeData(nodeId ?? "");
 
   // ── Headline metrics query ────────────────────────────────────────────────
 
-  const headlineMetricNamesList = useMemo(() => headlineMetricNames(), []);
+  const headlineMetricNamesList = useMemo(() => {
+    const names = headlineMetricNames();
+    // Omit MH-Z19E until the API catalog lists it. A query that names an
+    // unknown metric is rejected entirely, which would blank every chart.
+    return names.filter(
+      (name) => !name.startsWith("mhz19e_") || !!catalog?.metrics[name]
+    );
+  }, [catalog]);
 
   const {
     data: headlineHistoryData,
@@ -529,6 +562,7 @@ export default function NodeDetail() {
 
   // Non-null capture for TypeScript — all guards passed above
   const cat: Catalog = catalog;
+  const currentNode: FleetNode = node;
 
   // ── Transform headline series ─────────────────────────────────────────────
 
@@ -543,6 +577,25 @@ export default function NodeDetail() {
     : null;
 
   // ── Chart rendering helpers ───────────────────────────────────────────────
+
+  function resolveHeadlineMetric(slot: Extract<HeadlineSlot, { kind: "metric" }>): {
+    primary: string;
+    paired?: string;
+  } {
+    if (!slot.fallbackPrimary || !cat.metrics[slot.fallbackPrimary]) {
+      return { primary: slot.primary, paired: slot.paired };
+    }
+    const chosen = selectCo2Reading(currentNode.latest_reading?.values);
+    const primarySeries = hasData(headlineSeries?.[slot.primary] ?? []);
+    const fallbackSeries = hasData(headlineSeries?.[slot.fallbackPrimary] ?? []);
+    const useFallback =
+      chosen.avgMetric === slot.fallbackPrimary ||
+      (!primarySeries && fallbackSeries && chosen.ppm == null);
+    if (!useFallback) {
+      return { primary: slot.primary, paired: slot.paired };
+    }
+    return { primary: slot.fallbackPrimary, paired: slot.fallbackPaired };
+  }
 
   function renderHeadlineSlot(slot: HeadlineSlot, idx: number) {
     const showSkeleton = headlineChartsBusy && !headlineSeries;
@@ -585,15 +638,18 @@ export default function NodeDetail() {
       );
     }
 
-    const primaryMeta: MetricMetadata | undefined = cat.metrics[slot.primary];
+    const resolved = resolveHeadlineMetric(slot);
+    const primaryName = resolved.primary;
+    const pairedName = resolved.paired;
+    const primaryMeta: MetricMetadata | undefined = cat.metrics[primaryName];
     if (!primaryMeta) return null;
 
-    if (slot.paired) {
-      const pairedMeta = cat.metrics[slot.paired];
+    if (pairedName) {
+      const pairedMeta = cat.metrics[pairedName];
       if (!pairedMeta) return null;
 
-      const avgData = headlineSeries?.[slot.primary] ?? [];
-      const peakData = headlineSeries?.[slot.paired] ?? [];
+      const avgData = headlineSeries?.[primaryName] ?? [];
+      const peakData = headlineSeries?.[pairedName] ?? [];
       const hasAnyData = hasData(avgData) || hasData(peakData);
 
       return (
@@ -618,7 +674,7 @@ export default function NodeDetail() {
       );
     }
 
-    const data = headlineSeries?.[slot.primary] ?? [];
+    const data = headlineSeries?.[primaryName] ?? [];
     return (
       <ChartCard key={idx} title={primaryMeta.label}>
         {showSkeleton ? (

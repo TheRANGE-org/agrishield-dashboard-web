@@ -227,9 +227,11 @@ export function selectionIsDeepHistory(selection: ChartTimeSelection): boolean {
   return selection.window === "7d";
 }
 
-/** Longer client timeout for GCS-backed windows (p95 can exceed 15s under load). */
+/** Longer client timeout for lake-backed windows (a 7-day read is tens of seconds). */
 export function selectionQueryTimeoutMs(selection: ChartTimeSelection): number {
-  return selectionIsDeepHistory(selection) ? 90_000 : 30_000;
+  // Lake reads of a multi-day window are tens of seconds. Stay above that
+  // so a slow round trip is not aborted and retried from scratch.
+  return selectionIsDeepHistory(selection) ? 120_000 : 30_000;
 }
 
 /**

@@ -89,6 +89,14 @@ const MONITORED_SENSORS = [
     lastOk: "sensor_health_scd41_last_ok_ts",
     readingMetrics: ["scd41_co2_ppm"],
   },
+  {
+    label: "MH-Z19E",
+    init: "sensor_health_mhz19e_is_initialized",
+    errors: "sensor_health_mhz19e_error_count",
+    lastOk: "sensor_health_mhz19e_last_ok_ts",
+    autoReinit: "sensor_health_mhz19e_auto_reinit_count",
+    readingMetrics: ["mhz19e_co2_ppm"],
+  },
 ] as const;
 
 /** Age of last_ok_ts beyond which a sensor is treated as stale (at telemetry snapshot time). */

@@ -16,6 +16,7 @@ import {
 import { isSensorLabelStale } from "../../lib/staleReadings";
 import { formatCoordinates, formatSecondsSince, formatUptime } from "../../lib/format";
 import { isLabMode } from "../../lib/deploymentMode";
+import { selectCo2Reading } from "../../lib/co2Reading";
 import StatusBadge from "./StatusBadge";
 import OverlayStatusBadge from "./OverlayStatusBadge";
 import BatteryIndicator from "./BatteryIndicator";
@@ -107,7 +108,7 @@ export default function NodeTile({
   const tempC = readingValues["bme688_temperature_c"];
   const humPct = readingValues["bme688_humidity_pct"];
   const pm25 = readingValues["sps30_pm2_5"];
-  const co2 = readingValues["scd41_co2_ppm"];
+  const co2 = selectCo2Reading(readingValues);
   const coordsLabel = formatCoordinates(node.latitude, node.longitude);
   const hasCoords = coordsLabel !== null;
   const labMode = isLabMode(node);
@@ -235,9 +236,9 @@ export default function NodeTile({
         />
         <ReadingRow
           label="CO₂"
-          value={typeof co2 === "number" ? `${Math.round(co2)} ppm` : "—"}
-          stale={isSensorLabelStale(staleByNode, node.nodeId, "SCD41")}
-          staleLabel="SCD41 (stale)"
+          value={co2.ppm != null ? `${Math.round(co2.ppm)} ppm` : "—"}
+          stale={isSensorLabelStale(staleByNode, node.nodeId, co2.sensorLabel)}
+          staleLabel={`${co2.sensorLabel} (stale)`}
         />
       </div>
 

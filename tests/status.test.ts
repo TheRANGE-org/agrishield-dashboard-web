@@ -215,6 +215,25 @@ describe("computeSensorHealth", () => {
     const sps30 = result.details.find((d) => d.label === "SPS30");
     expect(sps30?.autoReinitCount).toBe(0);
   });
+
+  it("counts an MH-Z19E node when SCD41 is not reporting", () => {
+    const result = computeSensorHealth(
+      {
+        sensor_health_sps30_is_initialized: true,
+        sensor_health_sps30_error_count: 0,
+        sensor_health_mhz19e_is_initialized: true,
+        sensor_health_mhz19e_error_count: 0,
+        sensor_health_mhz19e_auto_reinit_count: 0,
+      },
+      {
+        readingValues: { sps30_pm2_5: 1.2, mhz19e_co2_ppm: 430 },
+      }
+    );
+    expect(result.total).toBe(2);
+    expect(result.healthy).toBe(2);
+    expect(result.details.map((d) => d.label)).toEqual(["SPS30", "MH-Z19E"]);
+    expect(result.details.find((d) => d.label === "SCD41")).toBeUndefined();
+  });
 });
 
 describe("decodePiThrottledState", () => {

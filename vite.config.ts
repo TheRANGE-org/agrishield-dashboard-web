@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const apiTarget =
     env.VITE_API_BASE_URL ||
-    "https://agrishield-dashboard-api-378259382997.us-south1.run.app";
+    "https://agrishield-dashboard-api-v2-378259382997.us-south1.run.app";
 
   return {
     plugins: [react(), tailwindcss()],

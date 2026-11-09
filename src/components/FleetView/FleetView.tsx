@@ -11,6 +11,7 @@ import NodeTile from "./NodeTile";
 import FleetMap, { type MapFocus } from "./FleetMap";
 import { formatDateTime } from "../../lib/format";
 import { filterNodesBySite, uniqueSiteIds } from "../../lib/fleetFilters";
+import { MHZ19E_CO2_PPM } from "../../lib/co2Reading";
 
 export default function FleetView() {
   const { fleet, isLoading, error, lastUpdated } = useFleet();
@@ -35,7 +36,9 @@ export default function FleetView() {
     () => visibleNodes.map((n) => n.nodeId),
     [visibleNodes]
   );
-  const { staleByNode } = useFleetStaleMetrics(visibleNodeIds);
+  const { staleByNode } = useFleetStaleMetrics(visibleNodeIds, {
+    includeMhz: !!catalog?.metrics[MHZ19E_CO2_PPM],
+  });
 
   const mapRefitKey = useMemo(
     () =>
