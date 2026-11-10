@@ -16,6 +16,11 @@ import {
 import { isSensorLabelStale } from "../../lib/staleReadings";
 import { formatCoordinates, formatSecondsSince, formatUptime } from "../../lib/format";
 import { isLabMode } from "../../lib/deploymentMode";
+import {
+  FLEET_CARD_COLORS,
+  fleetCardScheme,
+  readingsNeedAttention,
+} from "../../lib/fleetCardScheme";
 import { selectCo2Reading } from "../../lib/co2Reading";
 import StatusBadge from "./StatusBadge";
 import OverlayStatusBadge from "./OverlayStatusBadge";
@@ -30,12 +35,6 @@ interface NodeTileProps {
   onShowOnMap?: (node: FleetNode) => void;
   staleByNode?: Map<string, Set<string>>;
 }
-
-const STATUS_BG: Record<string, string> = {
-  live: "bg-white border-slate-200",
-  stale: "bg-amber-50/60 border-amber-200",
-  dead: "bg-red-50/60 border-red-200",
-};
 
 export default function NodeTile({
   node,
@@ -112,27 +111,37 @@ export default function NodeTile({
   const coordsLabel = formatCoordinates(node.latitude, node.longitude);
   const hasCoords = coordsLabel !== null;
   const labMode = isLabMode(node);
-
-  const borderClass =
-    labMode && liveStatus === "live"
-      ? "bg-yellow-50 border-yellow-400"
-      : (STATUS_BG[liveStatus] ?? STATUS_BG.live);
+  const scheme = fleetCardScheme({
+    labMode,
+    contact: liveStatus,
+    readingsNeedAttention: readingsNeedAttention({
+      sensorTotal: sensorHealth.total,
+      overallSeverity: sensorHealth.overallSeverity,
+      staleSensorCount: nodeStale?.size ?? 0,
+    }),
+  });
 
   return (
     <Link
       to={`/nodes/${node.nodeId}`}
       className={[
-        "block self-start w-full rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md hover:ring-2 hover:ring-green-400/50 focus-visible:outline-2 focus-visible:outline-green-600",
-        borderClass,
+        "relative block self-start w-full rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md hover:ring-2 hover:ring-green-400/50 focus-visible:outline-2 focus-visible:outline-green-600",
+        scheme.shellClass,
       ].join(" ")}
-      aria-label={`Node ${node.nodeId} — view details`}
+      aria-label={`Node ${node.nodeId}, ${scheme.stateSummary} — view details`}
     >
+    {scheme.railClass && (
+      <span
+        className={`absolute inset-y-0 left-0 w-2 ${scheme.railClass}`}
+        aria-hidden="true"
+      />
+    )}
     <article>
-      {/* ── Top bar ──────────────────────────────────────────────── */}
+      {/* ── Top bar: deployment lives here, and does not cover the fill ── */}
       <div
         className={[
           "px-4 pt-4 pb-3 flex items-start justify-between gap-2",
-          labMode ? "bg-yellow-200" : "",
+          scheme.headerClass,
         ].join(" ")}
       >
         <div className="min-w-0">
@@ -141,7 +150,7 @@ export default function NodeTile({
             <OverlayStatusBadge overlay={node.overlay} nowMs={nowMs} />
             {labMode && (
               <span
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-400 text-yellow-950 ring-1 ring-yellow-500"
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${FLEET_CARD_COLORS.labBadge}`}
                 aria-label="Deployment mode: Lab"
               >
                 Lab

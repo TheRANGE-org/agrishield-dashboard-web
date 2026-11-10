@@ -7,6 +7,7 @@ import { useTicker } from "../../hooks/useTicker";
 import type { FleetNode } from "../../api/types";
 import LoadingState from "../shared/LoadingState";
 import ErrorState from "../shared/ErrorState";
+import FleetCardKey from "./FleetCardKey";
 import NodeTile from "./NodeTile";
 import FleetMap, { type MapFocus } from "./FleetMap";
 import { formatDateTime } from "../../lib/format";
@@ -186,21 +187,24 @@ export default function FleetView() {
       {/* ── Node grid ──────────────────────────────────────────────── */}
       {catalog ? (
         visibleNodes.length > 0 ? (
-          <div
-            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 items-start"
-            aria-label="Sensor nodes"
-          >
-            {visibleNodes.map((node) => (
-              <NodeTile
-                key={node.nodeId}
-                node={node}
-                nowMs={nowMs}
-                catalog={catalog}
-                onShowOnMap={handleShowOnMap}
-                staleByNode={staleByNode}
-              />
-            ))}
-          </div>
+          <>
+            <FleetCardKey />
+            <div
+              className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 items-start"
+              aria-label="Sensor nodes"
+            >
+              {visibleNodes.map((node) => (
+                <NodeTile
+                  key={node.nodeId}
+                  node={node}
+                  nowMs={nowMs}
+                  catalog={catalog}
+                  onShowOnMap={handleShowOnMap}
+                  staleByNode={staleByNode}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           <p className="text-sm text-slate-500 text-center py-8">
             No nodes match the selected site filter.

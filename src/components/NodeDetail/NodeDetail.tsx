@@ -29,6 +29,7 @@ import {
 } from "../../lib/status";
 import { formatSecondsSince, formatMetricValue } from "../../lib/format";
 import { isLabMode } from "../../lib/deploymentMode";
+import { FLEET_CARD_COLORS } from "../../lib/fleetCardScheme";
 import { degreesToCompassPoint } from "../../lib/timeWindow";
 import {
   MHZ19E_CO2_PPM,
@@ -790,7 +791,7 @@ export default function NodeDetail() {
             <span>Site: {node.siteId}</span>
             {isLabMode(node) && (
               <span
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-200 text-yellow-950 ring-1 ring-yellow-400"
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${FLEET_CARD_COLORS.labBadge}`}
                 aria-label="Deployment mode: Lab"
               >
                 Lab
