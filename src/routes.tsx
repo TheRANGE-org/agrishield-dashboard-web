@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import Layout from "./components/shared/Layout";
 import FleetView from "./components/FleetView/FleetView";
+import MapView from "./components/FleetView/MapView";
 import DiagnosticsView from "./components/DiagnosticsView/DiagnosticsView";
 import NodeDetail from "./components/NodeDetail/NodeDetail";
 import CompareView from "./components/CompareView/CompareView";
@@ -14,6 +15,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <FleetView />,
+      },
+      {
+        path: "map",
+        element: <MapView />,
       },
       {
         path: "compare",

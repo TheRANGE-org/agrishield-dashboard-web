@@ -1,14 +1,29 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header";
 
 export default function Layout() {
+  const { pathname } = useLocation();
+  const isMap = pathname === "/map";
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div
+      className={
+        isMap
+          ? "flex h-dvh flex-col overflow-hidden bg-slate-50"
+          : "flex min-h-screen flex-col bg-slate-50"
+      }
+    >
       <Header />
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <main
+        className={
+          isMap
+            ? "flex min-h-0 w-full flex-1 flex-col"
+            : "mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8"
+        }
+      >
         <Outlet />
       </main>
-      <footer className="border-t border-slate-200 bg-white">
+      <footer className="shrink-0 border-t border-slate-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
           <span className="text-xs text-slate-400">
             © {new Date().getFullYear()} TheRANGE Foundation

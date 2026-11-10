@@ -1,13 +1,48 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { fleetSearchParams, parseDeploymentFilter } from "../../lib/fleetFilters";
+
+function navClass(active: boolean): string {
+  return [
+    "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+    active
+      ? "bg-slate-100 text-slate-900"
+      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50",
+  ].join(" ");
+}
 
 export default function Header() {
   const { pathname } = useLocation();
+  const [params] = useSearchParams();
+  const isMap = pathname === "/map";
+  const deployment = parseDeploymentFilter(params.get("deployment"));
+  const site = params.get("site") ?? "";
+  const focusNodeId = params.get("node");
+  const fleetSearch = fleetSearchParams({
+    deployment,
+    site,
+    node: null,
+  }).toString();
+  const mapSearch = fleetSearchParams({
+    deployment,
+    site,
+    node: focusNodeId,
+  }).toString();
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-4">
+      <div
+        className={[
+          "h-14 flex items-center gap-4",
+          isMap
+            ? "w-full px-4 sm:px-6 lg:px-8"
+            : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+        ].join(" ")}
+      >
         {/* Brand */}
-        <Link to="/" className="flex items-center gap-2.5 shrink-0">
+        <Link
+          to={{ pathname: "/", search: fleetSearch }}
+          className="flex items-center gap-2.5 shrink-0"
+        >
           {/* Shield icon */}
           <svg
             width="26"
@@ -57,36 +92,21 @@ export default function Header() {
         {/* Nav */}
         <nav className="flex items-center gap-1 ml-4">
           <Link
-            to="/"
-            className={[
-              "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              pathname === "/"
-                ? "bg-slate-100 text-slate-900"
-                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50",
-            ].join(" ")}
+            to={{ pathname: "/", search: fleetSearch }}
+            className={navClass(pathname === "/")}
           >
             Fleet
           </Link>
           <Link
-            to="/compare"
-            className={[
-              "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              pathname === "/compare"
-                ? "bg-slate-100 text-slate-900"
-                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50",
-            ].join(" ")}
+            to={{ pathname: "/map", search: mapSearch }}
+            className={navClass(pathname === "/map")}
           >
+            Map
+          </Link>
+          <Link to="/compare" className={navClass(pathname === "/compare")}>
             Compare
           </Link>
-          <Link
-            to="/weather"
-            className={[
-              "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              pathname === "/weather"
-                ? "bg-slate-100 text-slate-900"
-                : "text-slate-500 hover:text-slate-900 hover:bg-slate-50",
-            ].join(" ")}
-          >
+          <Link to="/weather" className={navClass(pathname === "/weather")}>
             Weather
           </Link>
         </nav>

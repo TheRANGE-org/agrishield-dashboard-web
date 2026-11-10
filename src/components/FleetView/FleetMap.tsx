@@ -5,15 +5,6 @@ import L from "leaflet";
 import type { FleetNode } from "../../api/types";
 import { computeStatus } from "../../lib/status";
 import { formatCoordinates, formatSecondsSince } from "../../lib/format";
-import {
-  FLEET_MAP_HEIGHT_COMPACT,
-  FLEET_MAP_HEIGHT_EXPANDED,
-} from "../../lib/fleetFilters";
-
-export const FLEET_MAP_HEIGHTS = {
-  compact: FLEET_MAP_HEIGHT_COMPACT,
-  expanded: FLEET_MAP_HEIGHT_EXPANDED,
-} as const;
 
 function nodeSecondsSinceContact(node: FleetNode, nowMs: number): number {
   const lastContactTs = Math.max(
@@ -34,8 +25,8 @@ export interface MapFocus {
   nodeId: string;
   lat: number;
   lng: number;
-  /** Changes on each focus request so repeat clicks re-trigger flyTo. */
-  at: number;
+  /** Changes when the user picks a different node, so flyTo runs again. */
+  at: string;
 }
 
 // Leaflet default marker icon path fix for bundlers
@@ -68,19 +59,22 @@ const STATUS_ICON: Record<string, L.DivIcon> = {
 
 interface FitBoundsOnceProps {
   nodes: FleetNode[];
-  /** When this changes, bounds are refit (e.g. site filter or map expand). */
+  /** When this changes, bounds are refit (site filter or deployment filter). */
   refitKey: string;
+  /** A focused node owns the camera until the user changes the filter. */
+  suspended?: boolean;
 }
 
 /**
  * Fits the map viewport to node positions on first render and when refitKey changes.
  * Does not refit on every poll — only when the visible node set meaningfully changes.
  */
-function FitBoundsOnce({ nodes, refitKey }: FitBoundsOnceProps) {
+function FitBoundsOnce({ nodes, refitKey, suspended = false }: FitBoundsOnceProps) {
   const map = useMap();
   const lastRefitKey = useRef<string | null>(null);
 
   useEffect(() => {
+    if (suspended) return;
     if (lastRefitKey.current === refitKey) return;
     const withCoords = nodes.filter(
       (n) => n.latitude !== null && n.longitude !== null
@@ -90,20 +84,27 @@ function FitBoundsOnce({ nodes, refitKey }: FitBoundsOnceProps) {
     const bounds = L.latLngBounds(
       withCoords.map((n) => [n.latitude!, n.longitude!])
     );
-    map.fitBounds(bounds, { padding: [40, 40] });
+    map.fitBounds(bounds, { padding: [48, 48] });
     lastRefitKey.current = refitKey;
-  }, [map, nodes, refitKey]);
+  }, [map, nodes, refitKey, suspended]);
 
   return null;
 }
 
-function MapResizeHandler({ height }: { height: number }) {
+function MapResizeHandler() {
   const map = useMap();
 
   useEffect(() => {
-    const timer = window.setTimeout(() => map.invalidateSize(), 150);
-    return () => window.clearTimeout(timer);
-  }, [map, height]);
+    const container = map.getContainer();
+    const invalidate = () => map.invalidateSize();
+    const timer = window.setTimeout(invalidate, 150);
+    const observer = new ResizeObserver(() => invalidate());
+    observer.observe(container);
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [map]);
 
   return null;
 }
@@ -121,21 +122,25 @@ interface FlyToFocusProps {
  */
 function FlyToFocus({ focus, markerRefs }: FlyToFocusProps) {
   const map = useMap();
+  const nodeId = focus?.nodeId;
+  const lat = focus?.lat;
+  const lng = focus?.lng;
+  const at = focus?.at;
 
   useEffect(() => {
-    if (!focus) return;
+    if (!nodeId || lat === undefined || lng === undefined) return;
 
-    map.flyTo([focus.lat, focus.lng], 15, { duration: 0.8 });
+    map.flyTo([lat, lng], 15, { duration: 0.8 });
 
     const openPopup = () => {
-      markerRefs.current[focus.nodeId]?.openPopup();
+      markerRefs.current[nodeId]?.openPopup();
     };
     // Open after flyTo completes so the popup is centered in view.
     map.once("moveend", openPopup);
     return () => {
       map.off("moveend", openPopup);
     };
-  }, [map, focus, markerRefs]);
+  }, [map, nodeId, lat, lng, at, markerRefs]);
 
   return null;
 }
@@ -146,33 +151,26 @@ interface FleetMapProps {
   nodes: FleetNode[];
   nowMs: number;
   focus?: MapFocus | null;
-  expanded?: boolean;
   refitKey?: string;
+  scrollWheelZoom?: boolean;
 }
 
 export default function FleetMap({
   nodes,
   nowMs,
   focus = null,
-  expanded = false,
   refitKey = "default",
+  scrollWheelZoom = false,
 }: FleetMapProps) {
   const markerRefs = useRef<Record<string, L.Marker>>({});
-  const mapHeight = expanded
-    ? FLEET_MAP_HEIGHT_EXPANDED
-    : FLEET_MAP_HEIGHT_COMPACT;
   const nodesWithCoords = nodes.filter(
     (n) => n.latitude !== null && n.longitude !== null
   );
 
   if (nodesWithCoords.length === 0) {
     return (
-      <div
-        className="w-full rounded-xl border border-dashed border-slate-200 flex items-center justify-center text-sm text-slate-400 bg-slate-50"
-        style={{ height: mapHeight }}
-      >
-        No node coordinates available
-        {nodes.length > 0 && " for this site"}
+      <div className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+        No node coordinates available for this selection
       </div>
     );
   }
@@ -185,15 +183,14 @@ export default function FleetMap({
 
   return (
     <div
-      className="w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm transition-[height] duration-300 ease-in-out"
-      style={{ height: mapHeight }}
+      className="h-full w-full overflow-hidden rounded-xl border border-slate-200 shadow-sm"
       aria-label="Sensor node map"
     >
       <MapContainer
         center={defaultCenter}
         zoom={7}
         style={{ height: "100%", width: "100%" }}
-        scrollWheelZoom={false}
+        scrollWheelZoom={scrollWheelZoom}
       >
         <TileLayer
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -201,8 +198,12 @@ export default function FleetMap({
           maxZoom={19}
         />
 
-        <FitBoundsOnce nodes={nodesWithCoords} refitKey={refitKey} />
-        <MapResizeHandler height={mapHeight} />
+        <FitBoundsOnce
+          nodes={nodesWithCoords}
+          refitKey={refitKey}
+          suspended={focus !== null}
+        />
+        <MapResizeHandler />
         <FlyToFocus focus={focus} markerRefs={markerRefs} />
 
         {nodesWithCoords.map((node) => {

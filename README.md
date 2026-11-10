@@ -95,7 +95,8 @@ pnpm dev
 
 | Path              | Description                                                      |
 |-------------------|------------------------------------------------------------------|
-| `/`               | Fleet view — OSM map + node tile grid, auto-refreshes 30s        |
+| `/`               | Fleet view — node tile grid, auto-refreshes 30s. Defaults to production nodes. |
+| `/map`            | Fleet map — full-page map using the same site and deployment filters. |
 | `/nodes/:nodeId`  | Node detail — headline charts, time window selector, full telemetry |
 | `/diagnostics`    | Operator diagnostics — backend internals (hidden from nav)        |
 
@@ -118,6 +119,7 @@ All variables must be prefixed `VITE_` to be accessible from client code (Vite r
 - **Light theme**: white/slate background, Inter font, environmental-green accent. Board members view primarily on phones in lit environments.
 - **Metadata-driven labels**: metric labels, units, and tooltip text come from `/api/metadata`; the frontend never hardcodes them.
 - **Real-time ticker**: a 1-second interval updates "last seen" counters without network re-fetches. Node status transitions (live→stale→dead) happen in real time between fleet polls.
+- **Fleet and map filters**: Fleet (`/`) is the card board and Map (`/map`) is the full-page map. Both read `deployment` (`production` by default, or `lab`, or `all`) and `site` from the query string. A missing `deployment_mode` stays lab, so an unconfigured node stays off the production board. The header counts nodes the filter is hiding. "Show on map" opens `/map` on that node.
 - **Fleet card styles**: the card shows deployment, contact, and readings at the same time. The header band is sky blue for lab and untinted for production, with a Lab badge on the card and on the node detail header. `deployment_mode` comes from the latest telemetry, or from the latest reading when telemetry has no mode. Missing mode is lab. The card body is white when readings are fully functional and yellow when a monitored sensor is missing, degraded, unhealthy, or flat. Contact is a left bar and an inset frame: none when live, amber when stale, red when offline. A stale or dead lab node keeps those contact colors. The yellow body is the readings signal, not the lab marker.
 - **Sensor health**: a monitored sensor stays healthy when it is initialized, its error count is 0, its last successful read is within 10 minutes, and the reading is not flat. Degraded means errors since the last good read while a reading is still present. Unhealthy means the last successful read is older than 10 minutes, the reading is flat, or the error count is above 0 with no current reading. The lifetime auto re-init count is shown on the sensor row as Auto re-inits. It does not change that severity, so it does not turn the fleet card yellow.
 - **No state management library**: React state + SWR is sufficient for a read-only polling dashboard.
