@@ -7,6 +7,7 @@ import {
   fleetSelectionEmptyMessage,
   hiddenDeploymentNote,
   parseDeploymentFilter,
+  sortFleetNodes,
   uniqueSiteIds,
   visibleNodePhrase,
 } from "../src/lib/fleetFilters";
@@ -130,6 +131,40 @@ describe("deployment summary", () => {
     expect(fleetSelectionEmptyMessage("lab", "wildcat", 1)).toBe(
       "No lab nodes to show."
     );
+  });
+});
+
+describe("sortFleetNodes", () => {
+  const nowMs = 1_700_000_000_000;
+
+  function contacted(id: string, secondsAgo: number): FleetNode {
+    const ts = Math.floor(nowMs / 1000) - secondsAgo;
+    return {
+      ...node(id, "wildcat", "production"),
+      seconds_since_contact: secondsAgo,
+      latest_reading: { ts, seconds_since: secondsAgo, values: {} },
+    };
+  }
+
+  it("lists offline, then stale, then live, with ids stable inside a group", () => {
+    const ordered = sortFleetNodes(
+      [
+        contacted("n-live-b", 30),
+        contacted("n-dead-b", 4000),
+        contacted("n-stale", 600),
+        contacted("n-live-a", 10),
+        contacted("n-dead-a", 7200),
+      ],
+      nowMs
+    ).map((n) => n.nodeId);
+
+    expect(ordered).toEqual([
+      "n-dead-a",
+      "n-dead-b",
+      "n-stale",
+      "n-live-a",
+      "n-live-b",
+    ]);
   });
 });
 

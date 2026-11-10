@@ -13,7 +13,7 @@ function navClass(active: boolean): string {
 export default function Header() {
   const { pathname } = useLocation();
   const [params] = useSearchParams();
-  const isMap = pathname === "/map";
+  const wide = pathname === "/" || pathname === "/map";
   const deployment = parseDeploymentFilter(params.get("deployment"));
   const site = params.get("site") ?? "";
   const focusNodeId = params.get("node");
@@ -33,7 +33,7 @@ export default function Header() {
       <div
         className={[
           "h-14 flex items-center gap-4",
-          isMap
+          wide
             ? "w-full px-4 sm:px-6 lg:px-8"
             : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
         ].join(" ")}

@@ -9,7 +9,11 @@ import FleetBoardHeader from "./FleetBoardHeader";
 import FleetCardKey from "./FleetCardKey";
 import FleetStatusGate from "./FleetStatusGate";
 import NodeTile from "./NodeTile";
-import { fleetSearchParams, fleetSelectionEmptyMessage } from "../../lib/fleetFilters";
+import {
+  fleetSearchParams,
+  fleetSelectionEmptyMessage,
+  sortFleetNodes,
+} from "../../lib/fleetFilters";
 import { MHZ19E_CO2_PPM } from "../../lib/co2Reading";
 
 export default function FleetView() {
@@ -71,10 +75,10 @@ export default function FleetView() {
             <>
               <FleetCardKey />
               <div
-                className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 items-start"
+                className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))] gap-4 items-start"
                 aria-label="Sensor nodes"
               >
-                {visibleNodes.map((node) => (
+                {sortFleetNodes(visibleNodes, nowMs).map((node) => (
                   <NodeTile
                     key={node.nodeId}
                     node={node}

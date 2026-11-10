@@ -1,5 +1,6 @@
 import type { FleetNode } from "../api/types";
 import { deploymentMode } from "./deploymentMode";
+import { computeStatus, type NodeStatus } from "./status";
 
 /** Fleet board filter. Absent or unknown query values stay production. */
 export type DeploymentFilter = "production" | "lab" | "all";
@@ -98,6 +99,35 @@ export function fleetSelectionEmptyMessage(
   if (filter === "production") return "No production nodes to show.";
   if (filter === "lab") return "No lab nodes to show.";
   return "No nodes match the selected filters.";
+}
+
+const STATUS_ORDER: Record<NodeStatus, number> = {
+  dead: 0,
+  stale: 1,
+  live: 2,
+};
+
+/** Same contact status the card paints, so a node moves up the moment it goes stale. */
+function currentNodeStatus(node: FleetNode, nowMs: number): NodeStatus {
+  const lastContactTs = Math.max(
+    node.latest_reading?.ts ?? 0,
+    node.latest_telemetry?.ts ?? 0
+  );
+  if (lastContactTs > 0) {
+    return computeStatus(Math.floor(nowMs / 1000 - lastContactTs));
+  }
+  return computeStatus(node.seconds_since_contact ?? Number.MAX_SAFE_INTEGER);
+}
+
+/** Offline first, then stale, then live. Node id keeps each group stable. */
+export function sortFleetNodes(nodes: FleetNode[], nowMs: number): FleetNode[] {
+  return [...nodes].sort((a, b) => {
+    const byStatus =
+      STATUS_ORDER[currentNodeStatus(a, nowMs)] -
+      STATUS_ORDER[currentNodeStatus(b, nowMs)];
+    if (byStatus !== 0) return byStatus;
+    return a.nodeId.localeCompare(b.nodeId);
+  });
 }
 
 /** Query string shared by the fleet board and the map. Always sets deployment. */
