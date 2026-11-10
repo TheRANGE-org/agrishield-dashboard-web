@@ -1,7 +1,7 @@
 # Software Update Log
 
-**Version:** 1.1
-**Last checked:** 26 October 2026, 13:16 CDT
+**Version:** 1.2.0
+**Last checked:** 10 November 2026, 15:30 CDT
 
 This log records the software update state of the AgriShield services other than the sensor nodes. The node fleet and the Headscale host are recorded in `agrishield-raspi4-repo/docs/SOFTWARE_UPDATE_LOG.md`.
 
@@ -11,13 +11,23 @@ These working trees are updated and not committed. The Cloud Run revisions below
 
 ---
 
+## Dashboard web, 10 November 2026
+
+Production `https://agrishield.landmanager.io` is Cloudflare Pages deployment `c3b17c2c-3d97-4b52-9a0f-edcb0961bbf2` from `main` commit `8c73e34`. The package version is `0.1.1`.
+
+A monitored sensor stays healthy when it is initialized, its error count is 0, its last successful read is within 10 minutes, and the reading is not flat. Degraded means errors since the last good read while a reading is still present. Unhealthy means the last successful read is older than 10 minutes, the reading is flat, or the error count is above 0 with no current reading. The lifetime `sensor_health_*_auto_reinit_count` is still shown on the node health sensor row as Auto re-inits. It is not a current fault, and it does not turn the fleet card yellow.
+
+The October section below is the trust-store check. Its note that Pages was still serving the 28 July build was true on 26 October. That is not the deployment above.
+
+---
+
 ## Summary
 
 | Project | Runtime | Trust-store work | Production after this check |
 |---------|---------|------------------|-----------------------------|
 | agrishield-aggregator-service | Cloud Run, two services | Done in the new image | Revisions `00009-n4h` and `00008-t2j`, both healthy |
 | agrishield-dashboard-api | Cloud Run | Done in the new image | Revision `00033-ghv`, healthy, backfill complete |
-| agrishield-dashboard-web | Cloudflare Pages | Browsers and Cloudflare terminate TLS | Lockfile updated. Pages still serves the 28 July build until this is pushed |
+| agrishield-dashboard-web | Cloudflare Pages | Browsers and Cloudflare terminate TLS | Lockfile updated on 26 October. Production on 10 November 2026 is commit `8c73e34` |
 | agrishield-edge-worker | Cloudflare Workers | Worker `fetch` uses Cloudflare's trust store | Version `803e6856-1d43-45f7-b633-b9ce691e75e0`, health ok |
 | build-dashboard | None. Local reference notes | None | No deployed software |
 
@@ -108,7 +118,7 @@ uv 0.11.13 wrote `uv.lock` and is the `uv` binary copied into the image.
 
 ## agrishield-dashboard-web
 
-Cloudflare Pages, `https://agrishield.landmanager.io`. A request on 26 October returned HTTP 200. That deployment is still the 28 July 2026 commit `86eb23b`. Pages builds from `main`. These lockfile changes are local until they are committed and pushed.
+Cloudflare Pages, `https://agrishield.landmanager.io`. A request on 26 October returned HTTP 200. At that moment Pages was still serving the 28 July 2026 commit `86eb23b`, and the lockfile changes below were local. They were committed the same day. Production on 10 November 2026 is commit `8c73e34`, package version `0.1.1`. Pages builds from `main`.
 
 `pnpm audit --prod` reports no known vulnerabilities after the update. The production dependency that had a fix available inside the existing major was React Router. It moved from 7.15.0 to 7.18.4. The published fixes for the route-matching denial of service and the related Router advisories start at 7.18.0 and 7.18.2.
 

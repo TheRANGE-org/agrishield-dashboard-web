@@ -1,5 +1,7 @@
 # AgriShield Dashboard Web
 
+**Version:** 0.1.1
+
 v1 stakeholder dashboard frontend for AgriShield. React + Vite + Tailwind, deployed to Cloudflare Pages.
 
 ## Production
@@ -116,7 +118,8 @@ All variables must be prefixed `VITE_` to be accessible from client code (Vite r
 - **Light theme**: white/slate background, Inter font, environmental-green accent. Board members view primarily on phones in lit environments.
 - **Metadata-driven labels**: metric labels, units, and tooltip text come from `/api/metadata`; the frontend never hardcodes them.
 - **Real-time ticker**: a 1-second interval updates "last seen" counters without network re-fetches. Node status transitions (live→stale→dead) happen in real time between fleet polls.
-- **Fleet card styles**: a live node is a plain card. A stale node is amber and a dead node is red. `deployment_mode` comes from the latest telemetry, or from the latest reading when telemetry has no mode. Missing mode is lab. A lab node has a yellow title bar and a Lab badge. While it is live the card is yellow. A stale or dead lab node keeps the problem colors, with the yellow title and badge still shown. The node detail header shows the same Lab badge.
+- **Fleet card styles**: the card shows deployment, contact, and readings at the same time. The header band is sky blue for lab and untinted for production, with a Lab badge on the card and on the node detail header. `deployment_mode` comes from the latest telemetry, or from the latest reading when telemetry has no mode. Missing mode is lab. The card body is white when readings are fully functional and yellow when a monitored sensor is missing, degraded, unhealthy, or flat. Contact is a left bar and an inset frame: none when live, amber when stale, red when offline. A stale or dead lab node keeps those contact colors. The yellow body is the readings signal, not the lab marker.
+- **Sensor health**: a monitored sensor stays healthy when it is initialized, its error count is 0, its last successful read is within 10 minutes, and the reading is not flat. Degraded means errors since the last good read while a reading is still present. Unhealthy means the last successful read is older than 10 minutes, the reading is flat, or the error count is above 0 with no current reading. The lifetime auto re-init count is shown on the sensor row as Auto re-inits. It does not change that severity, so it does not turn the fleet card yellow.
 - **No state management library**: React state + SWR is sufficient for a read-only polling dashboard.
 - **Historical data >24h is read from R2**: the 7d preset and custom ranges send absolute timestamps. The API serves those from `agrishield-lake`. A first read of a dense multi-day span takes tens of seconds, so the client waits 120 seconds. A repeat of the same hours within the API cache TTL is served from memory. Windows of 24h and shorter stay on the API's in-memory frames and use a 30 second timeout.
 - **CO₂ comes from whichever sensor the node reports**: the fleet tile label is CO₂. `scd41_co2_ppm` is used when that reading is present, including on the chart pair `scd41_co2_ppm` / `scd41_co2_ppm_max` and in the SCD41 health row. When it is absent, the tile, chart, and health panel use `mhz19e_co2_ppm` / `mhz19e_co2_ppm_max` and the MH-Z19E health fields. MH-Z19E names are omitted from queries until `/api/metadata` lists them, because one unknown metric fails the whole query. A node with neither numeric reading shows a dash.

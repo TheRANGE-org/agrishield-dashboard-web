@@ -59,7 +59,7 @@ export interface SensorHealthDetail {
   isStale: boolean;
   /** Seconds since last successful hardware read (from firmware last_ok_ts). */
   lastOkAgeSec: number | null;
-  /** SPS30 auto re-init count since service start, when available. */
+  /** Lifetime auto re-init count since service start, when the sensor reports one. History only; not a current fault. */
   autoReinitCount: number | null;
 }
 
