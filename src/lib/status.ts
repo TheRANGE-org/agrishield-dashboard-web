@@ -144,9 +144,9 @@ function formatErrorDetail(label: string, errorCount: number, isStale: boolean):
 /**
  * Computes per-sensor health from telemetry plus optional stale-reading hints.
  *
- * - **healthy** — initialized, no errors, reading not stale
- * - **degraded** — errors since last OK read but reading still changing, or minor fault
- * - **unhealthy** — stale reading and/or persistent errors with flat data
+ * - **healthy** — initialized, error count 0, last successful read within 10 minutes, reading not flat
+ * - **degraded** — errors since the last good read while the reading is still changing
+ * - **unhealthy** — last successful read older than 10 minutes, a flat reading, or errors with no current reading
  */
 export function computeSensorHealth(
   values: Record<string, number | string | boolean | null>,
@@ -199,7 +199,7 @@ export function computeSensorHealth(
     let severity: SensorHealthSeverity = "healthy";
     if (isStale || (errorCount > 0 && !hasReading)) {
       severity = "unhealthy";
-    } else if (errorCount > 0 || (autoReinitCount != null && autoReinitCount >= 3)) {
+    } else if (errorCount > 0) {
       severity = "degraded";
     }
 

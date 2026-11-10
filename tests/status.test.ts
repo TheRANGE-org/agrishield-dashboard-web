@@ -197,7 +197,8 @@ describe("computeSensorHealth", () => {
     expect(sps30?.lastOkAgeSec).toBe(120);
     expect(sps30?.autoReinitCount).toBe(4);
     expect(sps30?.detail).toContain("operating normally");
-    expect(result.overallSeverity).toBe("degraded");
+    expect(result.overallSeverity).toBe("healthy");
+    expect(result.unhealthyLabels).toEqual([]);
   });
 
   it("defaults SPS30 auto re-init count to zero when missing from telemetry", () => {
@@ -214,6 +215,38 @@ describe("computeSensorHealth", () => {
     );
     const sps30 = result.details.find((d) => d.label === "SPS30");
     expect(sps30?.autoReinitCount).toBe(0);
+  });
+
+  it("does not treat a high MH-Z19E auto re-init count as a current fault", () => {
+    const nowSec = 1_800_000_000;
+    const telemetryTs = nowSec - 60;
+    const result = computeSensorHealth(
+      {
+        sensor_health_sps30_is_initialized: true,
+        sensor_health_sps30_error_count: 0,
+        sensor_health_sps30_last_ok_ts: telemetryTs - 30,
+        sensor_health_sps30_auto_reinit_count: 2,
+        sensor_health_mhz19e_is_initialized: true,
+        sensor_health_mhz19e_error_count: 0,
+        sensor_health_mhz19e_last_ok_ts: telemetryTs - 20,
+        sensor_health_mhz19e_auto_reinit_count: 197,
+      },
+      {
+        readingValues: { sps30_pm2_5: 1.2, mhz19e_co2_ppm: 430 },
+        nowSec,
+        telemetryTs,
+      }
+    );
+    expect(result.overallSeverity).toBe("healthy");
+    expect(result.healthy).toBe(2);
+    expect(result.unhealthyLabels).not.toContain(
+      expect.stringContaining("MH-Z19E")
+    );
+    const mhz = result.details.find((d) => d.label === "MH-Z19E");
+    expect(mhz?.autoReinitCount).toBe(197);
+    expect(mhz?.errorCount).toBe(0);
+    expect(mhz?.severity).toBe("healthy");
+    expect(mhz?.detail).toContain("operating normally");
   });
 
   it("counts an MH-Z19E node when SCD41 is not reporting", () => {
